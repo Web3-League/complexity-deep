@@ -1,0 +1,108 @@
+# Complexity Model
+
+A modern transformer architecture with **2024 optimizations** and **Token-Routed MLP** innovation.
+
+## Innovations
+
+### 1. Token-Routed MLP (Original)
+Routes tokens to specialized experts based on token ID:
+
+```
+Token IDs 0-25K     → Expert 0 (frequent tokens)
+Token IDs 25K-50K   → Expert 1
+Token IDs 50K-75K   → Expert 2
+Token IDs 75K-100K  → Expert 3 (rare tokens)
+```
+
+### 2. Flash Attention (SDPA)
+Uses PyTorch 2.0+ `scaled_dot_product_attention` for:
+- 2-4x faster attention
+- O(n) memory vs O(n²)
+- Automatic backend selection
+
+### 3. QK Normalization (2024)
+Normalizes Q and K before attention:
+- Stabilizes training
+- Prevents attention collapse
+- Used in Gemma, Cohere, etc.
+
+### 4. Sliding Window Attention (Optional)
+Mistral-style local attention:
+- Efficient for long sequences
+- Configurable window size
+
+## Benefits
+
+| Metric | Standard | Complexity |
+|--------|----------|------------|
+| Attention speed | 1x | 2-4x (Flash) |
+| MLP compute/token | 100% | ~25% (1 expert) |
+| Training stability | baseline | better (QK Norm) |
+| PPL | baseline | better (specialization) |
+
+## Architecture
+
+```
+complexity/
+├── core/
+│   ├── normalization.py    # RMSNorm
+│   ├── rotary.py           # RoPE
+│   ├── attention.py        # GQA + Flash + QK Norm
+│   ├── mlp.py              # Standard SwiGLU
+│   ├── token_routed_mlp.py # Token-Routed MLP
+│   └── layer.py            # Decoder layer
+└── models/
+    ├── config.py           # ComplexityConfig
+    ├── modeling.py         # ComplexityForCausalLM
+    └── utils.py            # create_complexity_model()
+```
+
+## Usage
+
+```python
+from complexity import create_complexity_model
+
+# Create model with all innovations (default)
+model = create_complexity_model("base")
+
+# Forward pass
+outputs = model(input_ids, labels=labels)
+loss = outputs.loss
+```
+
+## Model Sizes
+
+| Size | Params | Hidden | Layers | Experts |
+|------|--------|--------|--------|---------|
+| tiny | ~15M | 256 | 6 | 4 |
+| 20m | ~20M | 320 | 8 | 4 |
+| small | ~50M | 512 | 8 | 4 |
+| base | ~125M | 768 | 12 | 4 |
+| medium | ~350M | 1024 | 24 | 4 |
+| large | ~760M | 1536 | 24 | 4 |
+| 1b | ~1B | 2048 | 24 | 4 |
+
+## Training
+
+```bash
+# Train tokenizer first
+python train_tokenizer.py --dataset Pacific-Prime/mixed-inl --vocab-size 100000
+
+# Train model
+python train_complexity.py --size small --dataset Pacific-Prime/mixed-inl
+```
+
+## Comparison
+
+| Component | Llama | INL-LLM v3 | Complexity |
+|-----------|-------|------------|------------|
+| Attention | GQA + RoPE | GQA + RoPE | **GQA + RoPE + Flash + QK Norm** |
+| MLP | SwiGLU | SwiGLU + MoE | **Token-Routed SwiGLU** |
+| Norm | RMSNorm | RMSNorm | RMSNorm |
+| Flash Attention | No | No | **Yes (SDPA)** |
+| QK Norm | No | No | **Yes** |
+| Sliding Window | No | No | **Optional** |
+
+## License
+
+MIT

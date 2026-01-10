@@ -1,0 +1,14 @@
+torch>=2.0.0
+transformers>=4.30.0
+datasets>=2.0.0
+tokenizers>=0.13.0
+tqdm
+tensorboard
+
+[cuda]
+triton>=2.0.0
+
+[dev]
+pytest
+black
+isort
