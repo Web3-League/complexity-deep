@@ -10,6 +10,7 @@ SIZE_PRESETS = {
     "tiny": ComplexityConfig.complexity_tiny,
     "20m": ComplexityConfig.complexity_20m,
     "small": ComplexityConfig.complexity_small,
+    "150m": ComplexityConfig.complexity_150m,
     "base": ComplexityConfig.complexity_base,
     "medium": ComplexityConfig.complexity_medium,
     "large": ComplexityConfig.complexity_large,

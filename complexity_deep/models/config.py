@@ -89,6 +89,17 @@ class ComplexityConfig:
         )
 
     @classmethod
+    def complexity_150m(cls) -> "ComplexityConfig":
+        """~150M params - good for testing."""
+        return cls(
+            hidden_size=768,
+            intermediate_size=2048,
+            num_hidden_layers=12,
+            num_attention_heads=12,
+            num_key_value_heads=4,
+        )
+
+    @classmethod
     def complexity_20m(cls) -> "ComplexityConfig":
         """~20M params - for quick experiments."""
         return cls(
