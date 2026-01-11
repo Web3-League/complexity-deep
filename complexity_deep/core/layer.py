@@ -17,7 +17,7 @@ from typing import Optional, Tuple, Dict
 from complexity_deep.core.normalization import RMSNorm
 from complexity_deep.core.attention import ComplexityAttention
 from complexity_deep.core.mlp import ComplexityMLP
-from complexity_deep.core.token_routed_mlp import TokenRoutedMLP
+from complexity_deep.core.token_routed_mlp import TokenRoutedMLP, TokenRoutedMLPParallel
 
 # Try to import Triton-accelerated version (5-6x faster)
 try:
@@ -202,6 +202,7 @@ class DeepDecoderLayer(nn.Module):
         # 3. MLP (transformation)
         if use_token_routed_mlp:
             if HAS_TRITON and TokenRoutedMLPTriton is not None:
+                # Triton-accelerated (5-6x faster with CGGR)
                 self.mlp = TokenRoutedMLPTriton(
                     hidden_size=hidden_size,
                     intermediate_size=intermediate_size,
@@ -211,7 +212,8 @@ class DeepDecoderLayer(nn.Module):
                     use_cggr=True,
                 )
             else:
-                self.mlp = TokenRoutedMLP(
+                # Parallel version (same weight format as Triton, uses bmm)
+                self.mlp = TokenRoutedMLPParallel(
                     hidden_size=hidden_size,
                     intermediate_size=intermediate_size,
                     num_experts=num_experts,
