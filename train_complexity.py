@@ -63,12 +63,13 @@ except ImportError:
 
 # CUDA Optimizations
 try:
-    from complexity.cuda import HAS_TRITON, get_optimization_info
-    from complexity.cuda.optimized_layer import OptimizedComplexityModel, OptimizationConfig
+    from complexity_deep.cuda import HAS_TRITON, get_optimization_info
     CUDA_OPTIMIZATIONS_AVAILABLE = HAS_TRITON
 except ImportError:
     CUDA_OPTIMIZATIONS_AVAILABLE = False
     HAS_TRITON = False
+    def get_optimization_info():
+        return {"triton_available": False, "optimizations": {}}
 
 
 # ============================================================================
