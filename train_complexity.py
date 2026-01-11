@@ -143,30 +143,10 @@ def create_optimized_model(
 
     preset = SIZE_PRESETS.get(size, SIZE_PRESETS["small"])
 
-    if use_optimizations and CUDA_OPTIMIZATIONS_AVAILABLE:
-        print(f"Creating OPTIMIZED model ({size})...")
-        config = OptimizationConfig(
-            use_fused_attention=True,
-            use_fused_mlp=True,
-            use_fused_residual=True,
-            use_persistent_cggr=True,
-            use_int8_quantization=False,  # Only for inference!
-            num_sms=80,
-        )
-
-        model = OptimizedComplexityModel(
-            vocab_size=vocab_size,
-            hidden_size=preset["hidden_size"],
-            num_hidden_layers=preset["num_hidden_layers"],
-            num_attention_heads=preset["num_attention_heads"],
-            num_key_value_heads=preset["num_key_value_heads"],
-            intermediate_size=preset["intermediate_size"],
-            num_experts=preset["num_experts"],
-            config=config,
-        )
-    else:
-        print(f"Creating STANDARD model ({size})...")
-        model = create_deep_model(size=size, vocab_size=vocab_size)
+    # Standard model with Triton-accelerated layers (TokenRoutedMLPTriton)
+    triton_status = "with Triton" if CUDA_OPTIMIZATIONS_AVAILABLE else "without Triton"
+    print(f"Creating model ({size}) {triton_status}...")
+    model = create_deep_model(size=size, vocab_size=vocab_size)
 
     if use_gradient_checkpointing and hasattr(model, 'gradient_checkpointing_enable'):
         model.gradient_checkpointing_enable()
