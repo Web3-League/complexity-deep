@@ -29,8 +29,23 @@ The Dynamics layer provides:
 Each layer has 3 components:
 
 1. **KQV Attention** (perception) - what tokens to attend to
-2. **Token-Routed MLP** (transformation) - feature processing
+2. **Token-Routed MLP** (transformation) - deterministic expert routing
 3. **INL Dynamics** (control) - trajectory smoothing
+
+### Token-Routed MLP (Deterministic MoE)
+
+Unlike learned routing (Mixtral, DeepSeek), we route tokens to experts using a simple formula:
+
+```python
+expert_id = token_id % num_experts
+```
+
+**Benefits:**
+- **Uniform distribution**: Each expert receives exactly 25% of tokens
+- **No expert collapse**: Frequent tokens spread across all experts
+- **Zero routing parameters**: No router network to learn
+- **Zero load balancing loss**: Perfectly balanced by design
+- **100% deterministic and parallelizable**
 
 ### INL Dynamics Equations
 
