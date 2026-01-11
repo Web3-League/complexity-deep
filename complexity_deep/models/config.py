@@ -174,6 +174,31 @@ class ComplexityConfig:
             num_hidden_layers=32,
             num_attention_heads=32,
             num_key_value_heads=8,
+            num_experts=8,
+        )
+
+    @classmethod
+    def complexity_3_8b(cls) -> "ComplexityConfig":
+        """~3.8B params."""
+        return cls(
+            hidden_size=3072,
+            intermediate_size=8192,
+            num_hidden_layers=32,
+            num_attention_heads=32,
+            num_key_value_heads=8,
+            num_experts=8,
+        )
+
+    @classmethod
+    def complexity_7b(cls) -> "ComplexityConfig":
+        """~7B params."""
+        return cls(
+            hidden_size=4096,
+            intermediate_size=11008,
+            num_hidden_layers=32,
+            num_attention_heads=32,
+            num_key_value_heads=8,
+            num_experts=8,
         )
 
     def to_dict(self) -> dict:

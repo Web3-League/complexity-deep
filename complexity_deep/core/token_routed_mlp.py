@@ -63,20 +63,14 @@ class TokenRoutedMLP(nn.Module):
         """
         Create deterministic mapping from token ID to expert ID.
 
-        Strategy: Divide vocabulary into equal ranges.
-        BPE tokenizers typically sort by frequency, so:
-            - Low IDs = frequent tokens
-            - High IDs = rare tokens
+        Strategy: Modulo routing for uniform distribution.
+        token_id % num_experts ensures each expert gets ~25% of tokens
+        regardless of token frequency in actual text.
+
+        This prevents expert collapse where frequent tokens (low IDs)
+        would all go to expert 0 with range-based routing.
         """
-        mapping = torch.zeros(vocab_size, dtype=torch.long)
-        tokens_per_expert = vocab_size // num_experts
-
-        for expert_id in range(num_experts):
-            start_idx = expert_id * tokens_per_expert
-            end_idx = start_idx + tokens_per_expert if expert_id < num_experts - 1 else vocab_size
-            mapping[start_idx:end_idx] = expert_id
-
-        return mapping
+        return torch.arange(vocab_size, dtype=torch.long) % num_experts
 
     def forward(
         self,
@@ -196,15 +190,8 @@ class TokenRoutedMLPParallel(nn.Module):
         )
 
     def _create_token_mapping(self, vocab_size: int, num_experts: int) -> torch.Tensor:
-        mapping = torch.zeros(vocab_size, dtype=torch.long)
-        tokens_per_expert = vocab_size // num_experts
-
-        for expert_id in range(num_experts):
-            start_idx = expert_id * tokens_per_expert
-            end_idx = start_idx + tokens_per_expert if expert_id < num_experts - 1 else vocab_size
-            mapping[start_idx:end_idx] = expert_id
-
-        return mapping
+        """Modulo routing for uniform expert distribution."""
+        return torch.arange(vocab_size, dtype=torch.long) % num_experts
 
     def forward(
         self,
