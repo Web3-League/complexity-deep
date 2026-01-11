@@ -48,7 +48,7 @@ from datasets import load_dataset
 from transformers import PreTrainedTokenizerFast
 from tqdm import tqdm
 
-from complexity import ComplexityConfig, ComplexityForCausalLM, create_complexity_model
+from complexity_deep import DeepConfig, DeepForCausalLM, create_deep_model
 
 # Mixed precision (new API for PyTorch 2.0+)
 try:
@@ -165,7 +165,7 @@ def create_optimized_model(
         )
     else:
         print(f"Creating STANDARD model ({size})...")
-        model = create_complexity_model(size=size, vocab_size=vocab_size)
+        model = create_deep_model(size=size, vocab_size=vocab_size)
 
     if use_gradient_checkpointing and hasattr(model, 'gradient_checkpointing_enable'):
         model.gradient_checkpointing_enable()
