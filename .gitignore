@@ -1,0 +1,53 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Checkpoints and models
+checkpoints/
+*.pt
+*.pth
+*.safetensors
+*.bin
+
+# Logs
+*.log
+logs/
+runs/
+tensorboard/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local config
+.env
+*.local
+datasets_config.py
+
+# Cache
+.cache/
+wandb/
+
+
+base-token
