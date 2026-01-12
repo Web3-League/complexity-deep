@@ -656,24 +656,23 @@ def main():
         checkpoint = torch.load(args.resume, map_location=device)
         model.load_state_dict(checkpoint["model_state_dict"])
 
-        # Load optimizer state but override learning rate if specified
+        # Load optimizer state (momentum, etc) but we'll override lr
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-
-        # Override learning rate with command line argument
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = args.lr
-        print(f"Learning rate set to: {args.lr}")
-
-        # Recreate scheduler with new lr (don't load old scheduler state)
-        # This ensures the new lr is used going forward
         start_step = checkpoint["step"]
 
-        # Rebuild scheduler from current step
+        # CRITICAL: Override learning rate BEFORE creating scheduler
+        # The scheduler uses optimizer's current lr as the base
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = args.lr
+            param_group['initial_lr'] = args.lr  # Important for LambdaLR!
+        print(f"Learning rate overridden to: {args.lr}")
+
+        # Rebuild scheduler with new lr as base
         if args.constant_lr:
-            # Constant lr for recovery
+            # Constant lr for recovery - multiplier is always 1.0
             def lr_lambda_resume(step):
-                return 1.0  # No decay
-            print(f"Using CONSTANT learning rate: {args.lr}")
+                return 1.0
+            print(f"Using CONSTANT learning rate: {args.lr} (no decay)")
         else:
             def lr_lambda_resume(step):
                 total_step = start_step + step
