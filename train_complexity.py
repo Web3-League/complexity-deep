@@ -532,6 +532,10 @@ def main():
     parser.add_argument("--tensorboard-dir", type=str, default="./runs",
                         help="TensorBoard log directory")
 
+    # Learning rate options
+    parser.add_argument("--constant-lr", action="store_true",
+                        help="Use constant learning rate (no cosine decay) - useful for recovery after NaN")
+
     # Other
     parser.add_argument("--token", type=str, default=None,
                         help="HuggingFace token")
@@ -606,11 +610,17 @@ def main():
         betas=(0.9, 0.95),
     )
 
-    # Scheduler with warmup
-    def lr_lambda(step):
-        if step < args.warmup_steps:
-            return step / args.warmup_steps
-        return 0.5 * (1 + math.cos(math.pi * (step - args.warmup_steps) / (args.max_steps - args.warmup_steps)))
+    # Scheduler with warmup (or constant)
+    if args.constant_lr:
+        # Constant lr - useful for recovery after NaN
+        def lr_lambda(step):
+            return 1.0  # No decay, just use the base lr
+        print(f"Using CONSTANT learning rate: {args.lr}")
+    else:
+        def lr_lambda(step):
+            if step < args.warmup_steps:
+                return step / args.warmup_steps
+            return 0.5 * (1 + math.cos(math.pi * (step - args.warmup_steps) / (args.max_steps - args.warmup_steps)))
 
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
@@ -634,11 +644,17 @@ def main():
         start_step = checkpoint["step"]
 
         # Rebuild scheduler from current step
-        def lr_lambda_resume(step):
-            total_step = start_step + step
-            if total_step < args.warmup_steps:
-                return total_step / args.warmup_steps
-            return 0.5 * (1 + math.cos(math.pi * (total_step - args.warmup_steps) / (args.max_steps - args.warmup_steps)))
+        if args.constant_lr:
+            # Constant lr for recovery
+            def lr_lambda_resume(step):
+                return 1.0  # No decay
+            print(f"Using CONSTANT learning rate: {args.lr}")
+        else:
+            def lr_lambda_resume(step):
+                total_step = start_step + step
+                if total_step < args.warmup_steps:
+                    return total_step / args.warmup_steps
+                return 0.5 * (1 + math.cos(math.pi * (total_step - args.warmup_steps) / (args.max_steps - args.warmup_steps)))
 
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda_resume)
 
