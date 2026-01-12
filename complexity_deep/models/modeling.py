@@ -246,9 +246,24 @@ class DeepForCausalLM(nn.Module):
         top_p: float = 0.9,
         do_sample: bool = True,
         eos_token_id: Optional[int] = None,
+        # INL Dynamics for inference (PID with mu) - generation only, doesn't affect checkpoint
+        use_dynamics: bool = True,
+        dynamics_strength: float = 0.1,
+        dynamics_alpha: float = 0.9,   # Inertia (momentum) - ignored, uses model's velocity
+        dynamics_beta: float = 0.1,    # Correction - ignored, uses model's velocity
     ) -> torch.Tensor:
         """
         Generate tokens with velocity tracking for smooth trajectories.
+
+        Note: dynamics_alpha/beta are accepted for API compatibility with pyllm-server
+        but complexity-deep uses its own trained velocity state from the model layers.
+        The velocity_state from forward() already incorporates the learned dynamics.
+
+        Args:
+            use_dynamics: If True, use velocity state to influence token sampling.
+            dynamics_strength: Strength of velocity influence on logits (0-1).
+            dynamics_alpha: Ignored (for API compat) - model uses trained dynamics.
+            dynamics_beta: Ignored (for API compat) - model uses trained dynamics.
         """
         if eos_token_id is None:
             eos_token_id = self.config.eos_token_id
@@ -278,6 +293,16 @@ class DeepForCausalLM(nn.Module):
             # Save raw logits BEFORE any modifications for fallback
             raw_logits = outputs.logits[:, -1, :].clone()
             logits = raw_logits / temperature
+
+            # NEW: Velocity-aware sampling (INL Dynamics for inference)
+            # Use velocity to bias towards tokens "in the direction of motion"
+            if use_dynamics and velocity_state is not None and dynamics_strength > 0:
+                # Project velocity through lm_head to get "velocity in token space"
+                # This tells us which tokens the model is "moving towards"
+                velocity_logits = self.lm_head(velocity_state[:, -1, :])
+                # Normalize and apply as soft bias
+                velocity_bias = torch.tanh(velocity_logits) * dynamics_strength
+                logits = logits + velocity_bias
 
             # Apply top-k
             if top_k > 0:
