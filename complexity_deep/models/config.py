@@ -133,18 +133,18 @@ class ComplexityConfig:
         )
 
     @classmethod
-    def complexity_medium(cls) -> "ComplexityConfig":
+    def complexity_350m(cls) -> "ComplexityConfig":
         """~350M params."""
         return cls(
-            hidden_size=1024,
-            intermediate_size=2816,
-            num_hidden_layers=24,
+            hidden_size=1280,
+            intermediate_size=3456,
+            num_hidden_layers=20,
             num_attention_heads=16,
             num_key_value_heads=4,
         )
 
     @classmethod
-    def complexity_large(cls) -> "ComplexityConfig":
+    def complexity_medium(cls) -> "ComplexityConfig":
         """~760M params."""
         return cls(
             hidden_size=1536,
@@ -152,6 +152,17 @@ class ComplexityConfig:
             num_hidden_layers=24,
             num_attention_heads=16,
             num_key_value_heads=4,
+        )
+
+    @classmethod
+    def complexity_large(cls) -> "ComplexityConfig":
+        """~1.5B params."""
+        return cls(
+            hidden_size=2048,
+            intermediate_size=5504,
+            num_hidden_layers=32,
+            num_attention_heads=32,
+            num_key_value_heads=8,
         )
 
     @classmethod
