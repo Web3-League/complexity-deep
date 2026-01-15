@@ -9,8 +9,8 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="complexity-deep",
-    version="0.11.0",
-    description="Triton-Fused Mu: accelerated QKV projection + residual highway (~2x speedup)",
+    version="0.11.2",
+    description="Fused Mu-QKV via concat: 3 matmuls instead of 6, cuBLAS optimized",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Pacific Prime",

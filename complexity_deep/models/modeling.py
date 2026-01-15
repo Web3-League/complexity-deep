@@ -19,12 +19,9 @@ from complexity_deep.core.normalization import RMSNorm
 from complexity_deep.core.layer import DeepDecoderLayer
 from complexity_deep.models.config import ComplexityConfig
 
-# Try to import Triton-accelerated fused mu residual
-try:
-    from complexity_deep.cuda.triton_mu_qkv import fused_mu_residual_highway, HAS_TRITON
-    HAS_FUSED_MU_RESIDUAL = HAS_TRITON
-except ImportError:
-    HAS_FUSED_MU_RESIDUAL = False
+# Triton-accelerated fused mu residual - DISABLED for now (needs optimization)
+# The overhead of kernel launch > gain from fusion for simple ops
+HAS_FUSED_MU_RESIDUAL = False
 
 
 @dataclass
