@@ -1,7 +1,7 @@
 {
   "model_type": "complexity-deep",
   "architecture": "DeepForCausalLM",
-  "version": "0.10.0",
+  "version": "0.13.0",
 
   "vocab_size": 32000,
   "hidden_size": 2048,
@@ -39,7 +39,8 @@
 
   "parameters": "~1.47B",
   "innovations": [
-    "Mu-Guided QKV (INL 2025) - mu biases Q, K, AND V",
+    "KQV Order (v0.13.0) - industry standard like Qwen, Llama, GPT",
+    "Mu-Guided KQV (INL 2025) - mu biases K, Q, AND V",
     "Mu-Guided Expert Routing - mu influences MLP expert selection",
     "Mu Residual Highway - accumulated context across layers",
     "Token-Routed MLP with mu override",

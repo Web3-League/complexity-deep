@@ -9,8 +9,8 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="complexity-deep",
-    version="0.12.2",
-    description="All kernels fused via concat+cuBLAS: QKV, MLP gate+up, dynamics controller",
+    version="0.13.0",
+    description="KQV order (industry standard), fused concat+cuBLAS, optimized KV-cache",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Pacific Prime",
