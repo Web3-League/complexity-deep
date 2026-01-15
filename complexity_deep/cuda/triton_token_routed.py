@@ -265,6 +265,10 @@ class TokenRoutedMLPTriton(nn.Module):
     Deterministic routing based on token ID:
     - Low token IDs -> Expert 0 (frequent tokens)
     - High token IDs -> Expert N-1 (rare tokens)
+
+    INL Innovation (2025):
+    - Mu-guided expert routing: mu can shift the expert selection
+    - Creates soft routing influenced by dynamics context
     """
 
     def __init__(
@@ -303,6 +307,12 @@ class TokenRoutedMLPTriton(nn.Module):
             "token_to_expert",
             self._create_token_mapping(vocab_size, num_experts),
         )
+
+        # INL 2025: Mu-guided expert routing
+        # mu_router projects mu to expert preference logits
+        # Initialized to zero so routing starts as pure token-based
+        self.mu_router = nn.Linear(hidden_size, num_experts, bias=False)
+        nn.init.zeros_(self.mu_router.weight)  # Start neutral
 
     def _create_token_mapping(self, vocab_size: int, num_experts: int) -> torch.Tensor:
         """Modulo routing for uniform expert distribution."""
@@ -388,13 +398,15 @@ class TokenRoutedMLPTriton(nn.Module):
         self,
         hidden_states: torch.Tensor,
         token_ids: Optional[torch.Tensor] = None,
+        mu: Optional[torch.Tensor] = None,  # INL: mu guides expert selection
     ) -> torch.Tensor:
         """
-        Forward pass.
+        Forward pass with mu-guided routing.
 
         Args:
             hidden_states: [batch, seq_len, hidden_size]
             token_ids: [batch, seq_len] - for routing
+            mu: [batch, seq_len, hidden_size] - mu from dynamics (INL)
 
         Returns:
             output: [batch, seq_len, hidden_size]
@@ -405,7 +417,25 @@ class TokenRoutedMLPTriton(nn.Module):
             expert_ids = torch.zeros(batch_size, seq_len, dtype=torch.long, device=hidden_states.device)
         else:
             token_ids_clamped = token_ids.clamp(0, self.vocab_size - 1)
-            expert_ids = self.token_to_expert[token_ids_clamped]
+            base_expert_ids = self.token_to_expert[token_ids_clamped]  # [batch, seq]
+
+            # INL 2025: Mu-guided expert routing
+            # mu can override or shift the expert selection
+            if mu is not None:
+                # Get mu preference for each expert
+                mu_logits = self.mu_router(mu)  # [batch, seq, num_experts]
+
+                # Create one-hot for base expert
+                base_one_hot = F.one_hot(base_expert_ids, self.num_experts).float()  # [B, S, E]
+
+                # Combine: base routing + mu influence
+                # mu_logits adds a soft bias toward different experts
+                combined_logits = base_one_hot * 10.0 + mu_logits  # base is strong (10.0)
+
+                # Hard selection: argmax (still deterministic, but mu-influenced)
+                expert_ids = combined_logits.argmax(dim=-1)  # [batch, seq]
+            else:
+                expert_ids = base_expert_ids
 
         # Flatten
         flat_hidden = hidden_states.view(-1, self.hidden_size)

@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="complexity-deep",
-    version="0.10.0",
+    version="0.10.1",
     description="Mu Everywhere: QKV + MLP routing + residual highway for maximum loss descent",
     long_description=long_description,
     long_description_content_type="text/markdown",
