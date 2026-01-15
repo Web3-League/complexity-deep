@@ -31,9 +31,7 @@ class INLDynamics(nn.Module):
     """
     Full INL Dynamics - Robotics-grade control with velocity tracking.
 
-    v0.12.0: Fused Concat + cuBLAS optimization
-    - Fused mu_proj into controller: 1 matmul instead of 2 for first layer
-    - Uses cuBLAS optimized concat approach (same as attention)
+    v0.12.2: Reverted to simple matmuls (dynamic concat was slower)
 
     Equations (like a physical system):
         error = h - mu(h)                   # deviation from contextual equilibrium
@@ -114,7 +112,10 @@ class INLDynamics(nn.Module):
         v: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
-        Apply dynamics update with fused concat + cuBLAS optimization.
+        Apply dynamics update.
+
+        v0.12.2: Reverted to simple path - dynamic weight concat was slower
+        due to tensor allocation overhead. Simple matmuls are faster for small ops.
 
         Args:
             h: Hidden states [batch, seq_len, hidden_size]
@@ -129,44 +130,9 @@ class INLDynamics(nn.Module):
         if v is None:
             v = torch.zeros_like(h)
 
-        # v0.12.0: Fused concat + cuBLAS for controller AND mu_proj
-        # Before: 3 matmuls: controller_in([h,v]), controller_out(x), mu_proj(h)
-        # After: 2 matmuls with fused first layer
-        #
-        # Fuse controller_in and mu_proj into single matmul:
-        # [h, v] @ [W_ctrl_h | W_ctrl_v]  -> ctrl_hidden
-        #                                  + W_mu @ h -> mu_adj (fused!)
-        #
-        # Combined weight: [2H, ctrl_hidden + H]
-        # Input: [h, v] -> Output: [ctrl_hidden, mu_adj]
-
+        # Controller: [h, v] -> alpha, beta, gate
         hv = torch.cat([h, v], dim=-1)  # [B, S, 2H]
-
-        # Fused matmul: controller_in + mu_proj in one shot
-        # W_combined = [W_ctrl; W_mu padded with zeros for v]
-        # Shape: [2H, ctrl_hidden + H]
-        w_ctrl = self.controller_in.weight  # [ctrl_hidden, 2H]
-        w_mu = self.mu_proj.weight  # [H, H]
-
-        # Pad mu_proj weights with zeros for v dimension
-        # mu_proj only uses h, so v coefficients are 0
-        w_mu_padded = torch.cat([
-            w_mu,
-            torch.zeros(self.hidden_size, self.hidden_size, device=h.device, dtype=h.dtype)
-        ], dim=1)  # [H, 2H]
-
-        # Combined weights: [ctrl_hidden + H, 2H]
-        w_combined = torch.cat([w_ctrl, w_mu_padded], dim=0)  # [ctrl_hidden + H, 2H]
-
-        # Single fused matmul (uses cuBLAS)
-        fused_out = F.linear(hv, w_combined, bias=None)  # [B, S, ctrl_hidden + H]
-
-        # Split outputs
-        ctrl_pre = fused_out[..., :self.controller_hidden]  # [B, S, ctrl_hidden]
-        mu_adj = fused_out[..., self.controller_hidden:]    # [B, S, H]
-
-        # Add controller_in bias and activation
-        ctrl_hidden = F.silu(ctrl_pre + self.controller_in.bias)  # [B, S, ctrl_hidden]
+        ctrl_hidden = F.silu(self.controller_in(hv))  # [B, S, ctrl_hidden]
         controller_out = self.controller_out(ctrl_hidden)  # [B, S, 3H]
 
         # Split and apply activations
@@ -174,26 +140,21 @@ class INLDynamics(nn.Module):
             controller_out, self.hidden_size, dim=-1
         )
         alpha = torch.sigmoid(alpha_raw)      # [0, 1] - inertia
-        # CRITICAL FIX: Clamp beta to prevent explosion!
-        # softplus can go to infinity, causing NaN after long training
-        # Max beta=2.0 keeps dynamics stable (like a real PID controller)
         beta = torch.clamp(F.softplus(beta_raw), max=2.0)  # [0, 2] - correction
         gate = torch.sigmoid(gate_raw)        # [0, 1] - amplitude
 
-        # Contextual mu: base equilibrium + fused context adjustment
-        mu_contextual = self.mu + mu_adj     # [batch, seq, hidden]
+        # Contextual mu: base equilibrium + context adjustment
+        mu_contextual = self.mu + self.mu_proj(h)     # [batch, seq, hidden]
 
         # Dynamics equations
-        error = h - mu_contextual                     # deviation from CONTEXTUAL equilibrium
-        v_next = alpha * v - beta * error             # velocity update
+        error = h - mu_contextual
+        v_next = alpha * v - beta * error
 
-        # STABILITY: Clamp velocity to prevent runaway accumulation
-        # Like velocity limits in real robotics systems
+        # Clamp velocity for stability
         v_next = torch.clamp(v_next, min=-10.0, max=10.0)
 
-        h_next = h + self.dt * gate * v_next          # position update
+        h_next = h + self.dt * gate * v_next
 
-        # Return mu_contextual for next layer's attention (mu-guided QK)
         return h_next, v_next, mu_contextual
 
     def init_velocity(self, batch_size: int, seq_len: int, device: torch.device) -> torch.Tensor:
