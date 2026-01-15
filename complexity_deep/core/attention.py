@@ -68,10 +68,11 @@ class ComplexityAttention(nn.Module):
         self.v_proj = nn.Linear(hidden_size, num_key_value_heads * self.head_dim, bias=False)
         self.o_proj = nn.Linear(num_attention_heads * self.head_dim, hidden_size, bias=False)
 
-        # Mu-to-QK projections (INL 2025 - mu guides attention)
-        # mu from previous layer biases Q and K, creating top-down guidance
+        # Mu-to-QKV projections (INL 2025 - mu guides attention EVERYWHERE)
+        # mu from previous layer biases Q, K, AND V - full top-down guidance
         self.mu_to_q = nn.Linear(hidden_size, num_attention_heads * self.head_dim, bias=False)
         self.mu_to_k = nn.Linear(hidden_size, num_key_value_heads * self.head_dim, bias=False)
+        self.mu_to_v = nn.Linear(hidden_size, num_key_value_heads * self.head_dim, bias=False)
 
         # QK Normalization (2024 innovation - stabilizes training)
         self.use_qk_norm = use_qk_norm
@@ -119,11 +120,12 @@ class ComplexityAttention(nn.Module):
         k = self.k_proj(hidden_states)
         v = self.v_proj(hidden_states)
 
-        # INL: Mu-guided attention - mu from previous layer biases Q and K
-        # This creates top-down guidance: "look in this direction"
+        # INL: Mu-guided attention - mu from previous layer biases Q, K, AND V
+        # Full top-down guidance: "look here, attend to this, extract this"
         if mu_prev is not None:
             q = q + self.mu_to_q(mu_prev)
             k = k + self.mu_to_k(mu_prev)
+            v = v + self.mu_to_v(mu_prev)
 
         # Reshape to [batch, heads, seq, head_dim]
         q = q.view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)

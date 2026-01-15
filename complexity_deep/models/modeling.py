@@ -124,8 +124,10 @@ class DeepModel(nn.Module):
 
         # Process through layers with mu propagation
         # mu from layer N guides attention in layer N+1 (top-down flow)
+        # INL 2025: Mu residual - accumulate mu across layers (mu highway)
         new_past_key_values = [] if use_cache else None
         mu_prev = None  # First layer has no mu guidance
+        mu_residual = None  # Accumulated mu across all layers
 
         for idx, layer in enumerate(self.layers):
             past_kv = past_key_values[idx] if past_key_values is not None else None
@@ -140,8 +142,16 @@ class DeepModel(nn.Module):
                 mu_prev=mu_prev,  # INL: pass mu from previous layer
             )
 
-            # mu from this layer guides next layer's attention
-            mu_prev = mu_current
+            # INL 2025: Mu residual highway
+            # Accumulate mu across layers for richer context propagation
+            if mu_residual is None:
+                mu_residual = mu_current
+            else:
+                mu_residual = mu_residual + mu_current
+
+            # mu_prev = current mu + residual from all previous layers
+            # This creates a "river" of accumulated context
+            mu_prev = mu_current + 0.1 * mu_residual  # 0.1 weight for residual
 
             if use_cache:
                 new_past_key_values.append(new_past_kv)

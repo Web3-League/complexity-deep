@@ -308,12 +308,13 @@ class DeepDecoderLayer(nn.Module):
 
         hidden_states = residual + hidden_states
 
-        # === 3. MLP (transformation) ===
+        # === 3. MU-GUIDED MLP (transformation) ===
+        # mu_current from dynamics guides expert routing
         residual = hidden_states
         hidden_states = self.post_attention_layernorm(hidden_states)
 
         if self.use_token_routed_mlp:
-            hidden_states = self.mlp(hidden_states, token_ids=token_ids)
+            hidden_states = self.mlp(hidden_states, token_ids=token_ids, mu=mu_current)
         else:
             hidden_states = self.mlp(hidden_states)
 

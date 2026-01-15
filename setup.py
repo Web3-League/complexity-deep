@@ -9,8 +9,8 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="complexity-deep",
-    version="0.9.0",
-    description="Mu-Guided Attention: robotics dynamics + QKV cooperation for better convergence",
+    version="0.10.0",
+    description="Mu Everywhere: QKV + MLP routing + residual highway for maximum loss descent",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Pacific Prime",
