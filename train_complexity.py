@@ -45,7 +45,7 @@ import torch.nn as nn
 warnings.filterwarnings("ignore", message="Mismatch dtype between input and weight")
 from torch.utils.data import DataLoader, IterableDataset
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts
 from torch.utils.tensorboard import SummaryWriter
 
 from datasets import load_dataset
@@ -555,6 +555,12 @@ def main():
     # Learning rate options
     parser.add_argument("--constant-lr", action="store_true",
                         help="Use constant learning rate (no cosine decay) - useful for recovery after NaN")
+    parser.add_argument("--cosine-restarts", action="store_true",
+                        help="Use cosine annealing with warm restarts (SGDR) - helps escape local minima")
+    parser.add_argument("--restart-period", type=int, default=50000,
+                        help="Period of first restart cycle T_0 (default: 50K steps)")
+    parser.add_argument("--restart-mult", type=int, default=2,
+                        help="Multiplier for restart period T_mult (default: 2, so cycles: 50K, 100K, 200K...)")
 
     # Other
     parser.add_argument("--token", type=str, default=None,
@@ -639,19 +645,30 @@ def main():
         betas=(0.9, 0.95),
     )
 
-    # Scheduler with warmup (or constant)
+    # Scheduler with warmup (or constant or cosine restarts)
     if args.constant_lr:
         # Constant lr - useful for recovery after NaN
         def lr_lambda(step):
             return 1.0  # No decay, just use the base lr
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
         print(f"Using CONSTANT learning rate: {args.lr}")
+    elif args.cosine_restarts:
+        # Cosine annealing with warm restarts (SGDR)
+        # T_0 = first cycle length, T_mult = multiplier for subsequent cycles
+        scheduler = CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=args.restart_period,
+            T_mult=args.restart_mult,
+            eta_min=args.lr * 0.01,  # Min LR = 1% of max
+        )
+        print(f"Using COSINE RESTARTS: T_0={args.restart_period}, T_mult={args.restart_mult}")
+        print(f"  Cycles: {args.restart_period} -> {args.restart_period * args.restart_mult} -> {args.restart_period * args.restart_mult**2} ...")
     else:
         def lr_lambda(step):
             if step < args.warmup_steps:
                 return step / args.warmup_steps
             return 0.5 * (1 + math.cos(math.pi * (step - args.warmup_steps) / (args.max_steps - args.warmup_steps)))
-
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     # Resume
     start_step = 0
@@ -676,15 +693,29 @@ def main():
             # Constant lr for recovery - multiplier is always 1.0
             def lr_lambda_resume(step):
                 return 1.0
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda_resume)
             print(f"Using CONSTANT learning rate: {args.lr} (no decay)")
+        elif args.cosine_restarts:
+            # Cosine restarts - fresh start from current position
+            scheduler = CosineAnnealingWarmRestarts(
+                optimizer,
+                T_0=args.restart_period,
+                T_mult=args.restart_mult,
+                eta_min=args.lr * 0.01,
+            )
+            # Optionally restore scheduler state, or start fresh cycle
+            if "scheduler_state_dict" in checkpoint and not args.cosine_restarts:
+                scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+            else:
+                print(f"Starting FRESH cosine restart cycle at step {start_step}")
+            print(f"Using COSINE RESTARTS: T_0={args.restart_period}, T_mult={args.restart_mult}")
         else:
             def lr_lambda_resume(step):
                 total_step = start_step + step
                 if total_step < args.warmup_steps:
                     return total_step / args.warmup_steps
                 return 0.5 * (1 + math.cos(math.pi * (total_step - args.warmup_steps) / (args.max_steps - args.warmup_steps)))
-
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda_resume)
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda_resume)
 
         print(f"Resumed at step {start_step}")
 
