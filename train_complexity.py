@@ -692,7 +692,17 @@ def main():
     if args.resume:
         print(f"\nResuming from {args.resume}")
         checkpoint = torch.load(args.resume, map_location=device)
-        model.load_state_dict(checkpoint["model_state_dict"])
+
+        # Load model state (strict=False to allow new keys like mu_proj)
+        missing, unexpected = model.load_state_dict(checkpoint["model_state_dict"], strict=False)
+        if missing:
+            print(f"New parameters (will be trained from init): {len(missing)}")
+            for k in missing[:5]:
+                print(f"  {k}")
+            if len(missing) > 5:
+                print(f"  ... and {len(missing) - 5} more")
+        if unexpected:
+            print(f"Warning: Unexpected keys in checkpoint: {unexpected}")
 
         # Try to load optimizer state, but skip if structure changed (e.g., new param groups)
         try:
