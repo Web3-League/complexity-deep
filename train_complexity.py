@@ -637,13 +637,28 @@ def main():
         print("Compiling model with torch.compile...")
         model = torch.compile(model)
 
-    # Optimizer
+    # Optimizer with proper weight decay handling
+    # Exclude bias, LayerNorm, and mu from weight decay
+    decay_params = []
+    no_decay_params = []
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            continue
+        # No weight decay for bias, norm, and mu (equilibrium point)
+        if 'bias' in name or 'norm' in name or '.mu' in name:
+            no_decay_params.append(param)
+        else:
+            decay_params.append(param)
+
     optimizer = AdamW(
-        model.parameters(),
+        [
+            {"params": decay_params, "weight_decay": args.weight_decay},
+            {"params": no_decay_params, "weight_decay": 0.0},
+        ],
         lr=args.lr,
-        weight_decay=args.weight_decay,
         betas=(0.9, 0.95),
     )
+    print(f"Optimizer: {len(decay_params)} params with decay, {len(no_decay_params)} without (bias/norm/mu)")
 
     # Scheduler with warmup (or constant or cosine restarts)
     if args.constant_lr:
