@@ -191,4 +191,4 @@ If you use Complexity-Deep in your research, please cite:
 CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0)
 
 - **Research & Education**: Free to use
-- **Commercial use**: Contact boris.peyriguere@inl.fr for licensing
+- **Commercial use**: Open an issue on GitHub for licensing

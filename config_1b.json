@@ -37,7 +37,7 @@
   "dynamics_dt": 0.1,
   "dynamics_controller_hidden": 64,
 
-  "parameters": "~1.47B",
+  "parameters": "~1.5B",
   "innovations": [
     "KQV Order (v0.13.0) - industry standard like Qwen, Llama, GPT",
     "Mu-Guided KQV (INL 2025) - mu biases K, Q, AND V",
