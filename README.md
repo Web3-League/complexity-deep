@@ -4,6 +4,7 @@ Complexity architecture with **INL Dynamics** for robotics-grade control.
 
 [![PyPI version](https://badge.fury.io/py/complexity-deep.svg)](https://badge.fury.io/py/complexity-deep)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18293026.svg)](https://doi.org/10.5281/zenodo.18293026)
 
 ## Installation
 
@@ -169,6 +170,21 @@ print(info)
 - **complexity** - Base architecture without Dynamics
 - **complexity-diffusion** - DiT for image generation
 - **pyllm-inference** - Inference server with streaming
+
+## Citation
+
+If you use Complexity-Deep in your research, please cite:
+
+```bibtex
+@software{peyriguere2026complexity,
+  author       = {Peyriguere, Boris},
+  title        = {Complexity-Deep: Token-Routed MLP with Mu-Guided Dynamics for Efficient Transformer Architectures},
+  year         = 2026,
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.18293026},
+  url          = {https://doi.org/10.5281/zenodo.18293026}
+}
+```
 
 ## License
 
