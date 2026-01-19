@@ -167,12 +167,10 @@ print(info)
 
 ## Roadmap
 
-Future architecture improvements under research:
-
 | Feature | Description | Status |
 |---------|-------------|--------|
+| **Continuous Batching** | Dynamic request batching | ✅ Done |
 | **Speculative Decoding** | 2-3x faster inference | Planned |
-| **Continuous Batching** | Better throughput for serving | Planned |
 
 ## Related Packages
 
