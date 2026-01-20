@@ -469,8 +469,8 @@ def main():
     config = checkpoint.get("config", {})
 
     # Use from_dict() to filter out non-model config keys (like batch_size, lr, etc.)
-    from complexity_deep import ComplexityConfig
-    model_config = ComplexityConfig.from_dict(config)
+    from complexity_deep import DeepConfig
+    model_config = DeepConfig.from_dict(config)
     model = DeepForCausalLM(model_config)
     model.load_state_dict(checkpoint["model"])
     model = model.to(device)
