@@ -472,7 +472,10 @@ def main():
     from complexity_deep import DeepConfig
     model_config = DeepConfig.from_dict(config)
     model = DeepForCausalLM(model_config)
-    model.load_state_dict(checkpoint["model"])
+
+    # Handle different checkpoint formats (model_state_dict or model)
+    state_dict = checkpoint.get("model_state_dict", checkpoint.get("model", checkpoint))
+    model.load_state_dict(state_dict)
     model = model.to(device)
 
     # Count parameters
