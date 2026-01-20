@@ -21,7 +21,7 @@ env/
 *.swo
 
 # Checkpoints and models
-checkpoints/
+checkpoints*
 *.pt
 *.pth
 *.safetensors
