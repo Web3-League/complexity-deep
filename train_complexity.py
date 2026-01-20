@@ -134,9 +134,9 @@ def create_optimized_model(
         "350m": {"hidden_size": 1280, "num_hidden_layers": 20, "num_attention_heads": 16,
                  "num_key_value_heads": 4, "intermediate_size": 3456, "num_experts": 4},  # ~350M
         "medium": {"hidden_size": 1536, "num_hidden_layers": 24, "num_attention_heads": 16,
-                   "num_key_value_heads": 4, "intermediate_size": 4096, "num_experts": 8},  # ~760M
+                   "num_key_value_heads": 4, "intermediate_size": 4096, "num_experts": 4},  # ~760M
         "1b": {"hidden_size": 2048, "num_hidden_layers": 24, "num_attention_heads": 16,
-               "num_key_value_heads": 8, "intermediate_size": 5504, "num_experts": 8},  # ~1B
+               "num_key_value_heads": 8, "intermediate_size": 5504, "num_experts": 4},  # ~1B
         "large": {"hidden_size": 2048, "num_hidden_layers": 32, "num_attention_heads": 32,
                   "num_key_value_heads": 8, "intermediate_size": 5504, "num_experts": 8},  # ~1.5B
         "3b": {"hidden_size": 2560, "num_hidden_layers": 32, "num_attention_heads": 32,
@@ -220,6 +220,7 @@ class StreamingTextDataset(IterableDataset):
         split: str = "train",
         token: Optional[str] = None,
         subset: Optional[str] = None,
+        exclude_sources: Optional[list] = None,
     ):
         self.dataset_name = dataset_name
         self.tokenizer = tokenizer
@@ -228,6 +229,7 @@ class StreamingTextDataset(IterableDataset):
         self.split = split
         self.token = token
         self.subset = subset
+        self.exclude_sources = exclude_sources or []
 
     def __iter__(self):
         try:
@@ -249,6 +251,12 @@ class StreamingTextDataset(IterableDataset):
         except Exception as e:
             print(f"Warning: Could not load {self.dataset_name}: {e}")
             return
+
+        # Filter by source (for SlimPajama: exclude RedPajamaGithub)
+        if self.exclude_sources:
+            ds = ds.filter(
+                lambda x: x.get("meta", {}).get("redpajama_set_name", "") not in self.exclude_sources
+            )
 
         buffer = []
         for example in ds:
@@ -521,6 +529,10 @@ def main():
                         help="Text field in dataset")
     parser.add_argument("--num-workers", type=int, default=4,
                         help="DataLoader workers")
+    parser.add_argument("--exclude-sources", type=str, nargs="+", default=None,
+                        help="Sources to exclude (for SlimPajama: RedPajamaGithub)")
+    parser.add_argument("--no-code", action="store_true",
+                        help="Shortcut: exclude GitHub code from SlimPajama")
 
     # Training
     parser.add_argument("--batch-size", type=int, default=32,
@@ -771,6 +783,16 @@ def main():
     else:
         # Streaming dataset (slower, but no preprocessing needed)
         print(f"Using STREAMING dataset: {args.dataset} (slower)")
+
+        # Handle --no-code shortcut for SlimPajama
+        exclude_sources = args.exclude_sources or []
+        if args.no_code:
+            exclude_sources.append("RedPajamaGithub")
+            print("NO-CODE MODE: Excluding RedPajamaGithub (GitHub code)")
+
+        if exclude_sources:
+            print(f"Excluding sources: {exclude_sources}")
+
         train_dataset = StreamingTextDataset(
             dataset_name=args.dataset,
             tokenizer=tokenizer,
@@ -778,6 +800,7 @@ def main():
             text_field=args.text_field,
             split="train",
             token=args.token,
+            exclude_sources=exclude_sources if exclude_sources else None,
         )
         train_loader = DataLoader(
             train_dataset,
