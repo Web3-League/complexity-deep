@@ -146,6 +146,10 @@ class INLDynamics(nn.Module):
         # Contextual mu: base equilibrium + context adjustment
         mu_contextual = self.mu + self.mu_proj(h)     # [batch, seq, hidden]
 
+        # Safety clamp on mu (if installed)
+        if hasattr(self, 'safety_clamp') and self.safety_clamp is not None:
+            mu_contextual = self.safety_clamp(mu_contextual)
+
         # Dynamics equations
         error = h - mu_contextual
         v_next = alpha * v - beta * error
@@ -155,11 +159,29 @@ class INLDynamics(nn.Module):
 
         h_next = h + self.dt * gate * v_next
 
+        # Safety clamp on hidden states (if installed)
+        if hasattr(self, 'safety_clamp') and self.safety_clamp is not None:
+            h_next = self.safety_clamp(h_next)
+
         return h_next, v_next, mu_contextual
 
     def init_velocity(self, batch_size: int, seq_len: int, device: torch.device) -> torch.Tensor:
         """Initialize velocity to zero."""
         return torch.zeros(batch_size, seq_len, self.hidden_size, device=device)
+
+    def install_safety(self, safety_clamp) -> None:
+        """Install safety clamp for inference."""
+        self.safety_clamp = safety_clamp
+
+    def remove_safety(self) -> None:
+        """Remove safety clamp."""
+        self.safety_clamp = None
+
+    def get_safety_stats(self) -> Dict:
+        """Get safety clamping stats."""
+        if hasattr(self, 'safety_clamp') and self.safety_clamp is not None:
+            return self.safety_clamp.get_stats()
+        return {'enabled': False}
 
 
 class DeepDecoderLayer(nn.Module):

@@ -73,6 +73,14 @@ class ComplexityConfig:
     dynamics_dt: float = 0.1              # Integration timestep
     dynamics_controller_hidden: int = 64  # Controller MLP hidden size
 
+    # Safety (Representation Engineering)
+    safety_enabled: bool = False          # Enable safety clamping at inference
+    safety_threshold: float = 2.0         # Clamping threshold
+    safety_soft_clamp: bool = True        # Use soft (differentiable) clamping
+    safety_temperature: float = 1.0       # Temperature for soft clamp
+    safety_layers: str = "-3,-2,-1"       # Which layers to apply safety (comma-separated)
+    safety_direction_path: str = None     # Path to harm direction file
+
     # ========================================================================
     # PRESET CONFIGURATIONS
     # ========================================================================

@@ -31,6 +31,16 @@ from complexity_deep.core import (
     INLDynamics,
 )
 
+from complexity_deep.core.safety import (
+    SafetyClamp,
+    SafetyConfig,
+    MultiDirectionSafetyClamp,
+    ContrastiveSafetyLoss,
+    install_safety_on_model,
+    remove_safety_from_model,
+    load_safety_directions,
+)
+
 from complexity_deep.models import (
     ComplexityConfig as DeepConfig,
     ComplexityModel as DeepModel,
@@ -38,7 +48,7 @@ from complexity_deep.models import (
     create_complexity_model as create_deep_model,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"  # Safety update
 __all__ = [
     # Core
     "RMSNorm",
@@ -47,6 +57,14 @@ __all__ = [
     "ComplexityMLP",
     "DeepDecoderLayer",
     "INLDynamics",
+    # Safety
+    "SafetyClamp",
+    "SafetyConfig",
+    "MultiDirectionSafetyClamp",
+    "ContrastiveSafetyLoss",
+    "install_safety_on_model",
+    "remove_safety_from_model",
+    "load_safety_directions",
     # Models
     "DeepConfig",
     "DeepModel",
