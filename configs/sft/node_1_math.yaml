@@ -23,7 +23,7 @@ data:
       weight: 0.2
     - name: "lighteval/MATH"
       weight: 0.3
-    - name: "camel-ai/math"
+    - name: "meta-math/MetaMathQA"
       weight: 0.2
     - name: "microsoft/orca-math-word-problems-200k"
       weight: 0.3
