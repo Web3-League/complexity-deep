@@ -218,6 +218,7 @@ class ConversationalDataset(Dataset):
         token: Optional[str] = None,
         subset: Optional[str] = None,
         mask_user: bool = True,  # Mask loss on user messages
+        _examples: Optional[List] = None,  # Pre-loaded examples (for multi-dataset)
     ):
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -225,27 +226,32 @@ class ConversationalDataset(Dataset):
         self.template = Template(chat_template)
         self.format_name = format_name
 
-        # Load dataset
-        print(f"Loading dataset: {dataset_name}")
-        try:
-            if subset:
-                ds = load_dataset(dataset_name, subset, split=split, token=token)
-            else:
-                ds = load_dataset(dataset_name, split=split, token=token)
-        except Exception as e:
-            print(f"Error loading dataset: {e}")
-            print("Trying with trust_remote_code=True...")
-            if subset:
-                ds = load_dataset(dataset_name, subset, split=split, token=token, trust_remote_code=True)
-            else:
-                ds = load_dataset(dataset_name, split=split, token=token, trust_remote_code=True)
+        # Use pre-loaded examples if provided
+        if _examples is not None:
+            self.examples = _examples
+            print(f"Using {len(self.examples)} pre-loaded conversations")
+        else:
+            # Load single dataset
+            print(f"Loading dataset: {dataset_name}")
+            try:
+                if subset:
+                    ds = load_dataset(dataset_name, subset, split=split, token=token)
+                else:
+                    ds = load_dataset(dataset_name, split=split, token=token)
+            except Exception as e:
+                print(f"Error loading dataset: {e}")
+                print("Trying with trust_remote_code=True...")
+                if subset:
+                    ds = load_dataset(dataset_name, subset, split=split, token=token, trust_remote_code=True)
+                else:
+                    ds = load_dataset(dataset_name, split=split, token=token, trust_remote_code=True)
 
-        # Limit samples
-        if max_samples and len(ds) > max_samples:
-            ds = ds.select(range(max_samples))
+            # Limit samples
+            if max_samples and len(ds) > max_samples:
+                ds = ds.select(range(max_samples))
 
-        self.examples = list(ds)
-        print(f"Loaded {len(self.examples)} conversations")
+            self.examples = list(ds)
+            print(f"Loaded {len(self.examples)} conversations")
 
         # Show sample
         if self.examples:
@@ -254,6 +260,90 @@ class ConversationalDataset(Dataset):
             print(f"\n--- Sample conversation ---")
             print(sample_text[:500] + "..." if len(sample_text) > 500 else sample_text)
             print("---\n")
+
+    @classmethod
+    def from_multiple_datasets(
+        cls,
+        datasets_config: List[dict],
+        tokenizer: PreTrainedTokenizerFast,
+        chat_template: str,
+        format_name: str = "auto",
+        max_length: int = 2048,
+        split: str = "train",
+        max_samples: Optional[int] = None,
+        token: Optional[str] = None,
+        mask_user: bool = True,
+    ):
+        """
+        Load and combine multiple datasets with weights.
+
+        datasets_config: List of dicts with keys: name, weight, subset (optional)
+        Example: [{"name": "openai/gsm8k", "weight": 0.3, "subset": "main"}, ...]
+        """
+        import random
+
+        all_examples = []
+        total_weight = sum(d.get("weight", 1.0) for d in datasets_config)
+
+        print(f"\n{'='*60}")
+        print(f"Loading {len(datasets_config)} datasets (max_samples={max_samples})")
+        print(f"{'='*60}")
+
+        for ds_config in datasets_config:
+            ds_name = ds_config["name"]
+            ds_weight = ds_config.get("weight", 1.0) / total_weight
+            ds_subset = ds_config.get("subset", None)
+
+            # Calculate samples for this dataset
+            if max_samples:
+                ds_max = int(max_samples * ds_weight)
+            else:
+                ds_max = None
+
+            print(f"\n[{ds_name}] weight={ds_config.get('weight', 1.0):.2f} -> {ds_max or 'all'} samples")
+
+            try:
+                if ds_subset:
+                    ds = load_dataset(ds_name, ds_subset, split=split, token=token)
+                else:
+                    ds = load_dataset(ds_name, split=split, token=token)
+            except Exception as e:
+                print(f"  Error: {e}")
+                print("  Trying with trust_remote_code=True...")
+                try:
+                    if ds_subset:
+                        ds = load_dataset(ds_name, ds_subset, split=split, token=token, trust_remote_code=True)
+                    else:
+                        ds = load_dataset(ds_name, split=split, token=token, trust_remote_code=True)
+                except Exception as e2:
+                    print(f"  Failed to load {ds_name}: {e2}")
+                    continue
+
+            # Sample or limit
+            ds_list = list(ds)
+            if ds_max and len(ds_list) > ds_max:
+                random.shuffle(ds_list)
+                ds_list = ds_list[:ds_max]
+
+            print(f"  Loaded {len(ds_list)} samples")
+            all_examples.extend(ds_list)
+
+        # Shuffle combined dataset
+        random.shuffle(all_examples)
+
+        print(f"\n{'='*60}")
+        print(f"Total combined: {len(all_examples)} samples")
+        print(f"{'='*60}\n")
+
+        return cls(
+            dataset_name="combined",
+            tokenizer=tokenizer,
+            chat_template=chat_template,
+            format_name=format_name,
+            max_length=max_length,
+            mask_user=mask_user,
+            _examples=all_examples,
+        )
 
     def __len__(self):
         return len(self.examples)
@@ -438,12 +528,14 @@ def main():
     parser.add_argument("--tokenizer", type=str, default=None, help="Tokenizer path")
 
     # Dataset
-    parser.add_argument("--dataset", type=str, required=True, help="HuggingFace dataset")
+    parser.add_argument("--dataset", type=str, default=None, help="HuggingFace dataset (single)")
+    parser.add_argument("--datasets-json", type=str, default=None,
+                       help="JSON array of datasets with weights: [{\"name\": \"...\", \"weight\": 0.3, \"subset\": \"...\"}]")
     parser.add_argument("--subset", type=str, default=None, help="Dataset subset")
     parser.add_argument("--format", type=str, default="auto",
                        choices=["auto", "oasst", "sharegpt", "dolphin", "alpaca", "messages", "qa"],
                        help="Dataset format")
-    parser.add_argument("--max-samples", type=int, default=None, help="Max samples")
+    parser.add_argument("--max-samples", type=int, default=None, help="Max samples (total across all datasets)")
     parser.add_argument("--token", type=str, default=None, help="HF token")
 
     # Chat template
@@ -574,18 +666,36 @@ def main():
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Model parameters: {total_params / 1e9:.2f}B")
 
-    # Load dataset
-    dataset = ConversationalDataset(
-        dataset_name=args.dataset,
-        tokenizer=tokenizer,
-        chat_template=chat_template,
-        format_name=args.format,
-        max_length=args.max_length,
-        max_samples=args.max_samples,
-        token=args.token,
-        subset=args.subset,
-        mask_user=not args.no_mask_user,
-    )
+    # Load dataset(s)
+    if args.datasets_json:
+        # Multiple datasets with weights
+        import json
+        datasets_config = json.loads(args.datasets_json)
+        dataset = ConversationalDataset.from_multiple_datasets(
+            datasets_config=datasets_config,
+            tokenizer=tokenizer,
+            chat_template=chat_template,
+            format_name=args.format,
+            max_length=args.max_length,
+            max_samples=args.max_samples,
+            token=args.token,
+            mask_user=not args.no_mask_user,
+        )
+    elif args.dataset:
+        # Single dataset
+        dataset = ConversationalDataset(
+            dataset_name=args.dataset,
+            tokenizer=tokenizer,
+            chat_template=chat_template,
+            format_name=args.format,
+            max_length=args.max_length,
+            max_samples=args.max_samples,
+            token=args.token,
+            subset=args.subset,
+            mask_user=not args.no_mask_user,
+        )
+    else:
+        raise ValueError("Must provide --dataset or --datasets-json")
 
     # DataLoader
     pad_token_id = tokenizer.pad_token_id or 0

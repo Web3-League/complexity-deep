@@ -15,6 +15,7 @@ Usage:
 
 import os
 import sys
+import json
 import yaml
 import argparse
 import subprocess
@@ -56,12 +57,18 @@ def train_from_config(config_path: str, dry_run: bool = False):
     if config["training"].get("bf16", True):
         cmd.append("--bf16")
 
-    # Dataset (use first one for now, or combine)
+    # Dataset(s)
     datasets = config["data"]["datasets"]
     if datasets:
-        cmd.extend(["--dataset", datasets[0]["name"]])
-        if "subset" in datasets[0]:
-            cmd.extend(["--subset", datasets[0]["subset"]])
+        if len(datasets) == 1:
+            # Single dataset
+            cmd.extend(["--dataset", datasets[0]["name"]])
+            if "subset" in datasets[0]:
+                cmd.extend(["--subset", datasets[0]["subset"]])
+        else:
+            # Multiple datasets - pass as JSON
+            datasets_json = json.dumps(datasets)
+            cmd.extend(["--datasets-json", datasets_json])
 
     # Max samples
     if config["data"].get("max_samples"):
