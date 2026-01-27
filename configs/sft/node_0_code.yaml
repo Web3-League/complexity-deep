@@ -1,0 +1,45 @@
+# Node 0: CODE Specialist
+# Focus: Code generation, debugging, refactoring
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  output: "./checkpoints/pacific-prime-code"
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 64
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 4096
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: false
+
+data:
+  datasets:
+    - name: "bigcode/starcoderdata"
+      subset: "python"
+      weight: 0.3
+    - name: "codeparrot/apps"
+      weight: 0.2
+    - name: "openai/humaneval"
+      weight: 0.1
+    - name: "deepmind/code_contests"
+      weight: 0.2
+    - name: "sahil2801/CodeAlpaca-20k"
+      weight: 0.2
+  format: "sharegpt"
+  max_samples: 500000
+
+specialization:
+  name: "code"
+  skills:
+    - python
+    - javascript
+    - typescript
+    - rust
+    - debugging
+    - refactoring
+    - code_review
+    - documentation

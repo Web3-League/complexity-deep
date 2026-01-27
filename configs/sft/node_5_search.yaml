@@ -1,0 +1,43 @@
+# Node 5: SEARCH Specialist
+# Focus: Query formulation, information extraction, RAG
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  output: "./checkpoints/pacific-prime-search"
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 64
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 4096
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: false
+
+data:
+  datasets:
+    - name: "ms_marco"
+      subset: "v2.1"
+      weight: 0.3
+    - name: "natural_questions"
+      weight: 0.2
+    - name: "hotpot_qa"
+      weight: 0.2
+    - name: "trivia_qa"
+      weight: 0.15
+    - name: "squad_v2"
+      weight: 0.15
+  format: "sharegpt"
+  max_samples: 500000
+
+specialization:
+  name: "search"
+  skills:
+    - query_formulation
+    - information_extraction
+    - fact_finding
+    - source_citation
+    - rag_augmented
+    - web_search

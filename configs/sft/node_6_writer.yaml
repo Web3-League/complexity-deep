@@ -1,0 +1,43 @@
+# Node 6: WRITER Specialist
+# Focus: Content generation, style, formatting
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  output: "./checkpoints/pacific-prime-writer"
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 64
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 4096
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: false
+
+data:
+  datasets:
+    - name: "euclaise/writingprompts"
+      weight: 0.25
+    - name: "qwedsacf/grade-school-math-instructions"
+      weight: 0.1
+    - name: "teknium/OpenHermes-2.5"
+      weight: 0.25
+    - name: "Open-Orca/SlimOrca"
+      weight: 0.2
+    - name: "HuggingFaceH4/ultrachat_200k"
+      weight: 0.2
+  format: "sharegpt"
+  max_samples: 500000
+
+specialization:
+  name: "writer"
+  skills:
+    - creative_writing
+    - technical_writing
+    - documentation
+    - email_drafting
+    - style_adaptation
+    - formatting
+    - markdown

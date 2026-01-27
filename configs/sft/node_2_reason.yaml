@@ -1,0 +1,44 @@
+# Node 2: REASON Specialist
+# Focus: Chain-of-thought, logic, deduction
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  output: "./checkpoints/pacific-prime-reason"
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 64
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 4096
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: false
+
+data:
+  datasets:
+    - name: "allenai/ai2_arc"
+      subset: "ARC-Challenge"
+      weight: 0.2
+    - name: "Rowan/hellaswag"
+      weight: 0.15
+    - name: "tasksource/bigbench"
+      subset: "logical_deduction"
+      weight: 0.2
+    - name: "kaist-ai/CoT-Collection"
+      weight: 0.3
+    - name: "akjindal53244/Camel-AI-Physics"
+      weight: 0.15
+  format: "sharegpt"
+  max_samples: 500000
+
+specialization:
+  name: "reason"
+  skills:
+    - chain_of_thought
+    - logical_deduction
+    - causal_reasoning
+    - analogical_reasoning
+    - counterfactual
+    - multi_step

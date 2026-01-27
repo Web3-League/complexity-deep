@@ -1,0 +1,46 @@
+# Node 9: GENERAL Specialist
+# Focus: Orchestration, routing, fallback
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  output: "./checkpoints/pacific-prime-general"
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 64
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 4096
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: false
+
+data:
+  datasets:
+    # Mix of all domains
+    - name: "OpenAssistant/oasst1"
+      weight: 0.2
+    - name: "teknium/OpenHermes-2.5"
+      weight: 0.2
+    - name: "cognitivecomputations/dolphin"
+      weight: 0.15
+    - name: "HuggingFaceH4/ultrachat_200k"
+      weight: 0.15
+    - name: "Open-Orca/SlimOrca"
+      weight: 0.15
+    - name: "WizardLM/WizardLM_evol_instruct_70k"
+      weight: 0.15
+  format: "sharegpt"
+  max_samples: 500000
+
+specialization:
+  name: "general"
+  skills:
+    - general_assistant
+    - routing
+    - orchestration
+    - fallback
+    - conversation
+    - instruction_following
+    - multi_domain

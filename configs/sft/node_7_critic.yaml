@@ -1,0 +1,42 @@
+# Node 7: CRITIC Specialist
+# Focus: Review, validation, error detection
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  output: "./checkpoints/pacific-prime-critic"
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 64
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 4096
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: false
+
+data:
+  datasets:
+    - name: "Anthropic/hh-rlhf"
+      weight: 0.2
+    - name: "nvidia/HelpSteer"
+      weight: 0.2
+    - name: "openbmb/UltraFeedback"
+      weight: 0.25
+    - name: "argilla/ultrafeedback-binarized-preferences"
+      weight: 0.2
+    - name: "tatsu-lab/alpaca_eval"
+      weight: 0.15
+  format: "sharegpt"
+  max_samples: 500000
+
+specialization:
+  name: "critic"
+  skills:
+    - code_review
+    - fact_checking
+    - error_detection
+    - quality_assessment
+    - feedback_generation
+    - improvement_suggestions

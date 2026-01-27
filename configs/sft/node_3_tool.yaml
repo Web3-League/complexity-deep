@@ -1,0 +1,41 @@
+# Node 3: TOOL Specialist
+# Focus: Tool use, function calling, API interaction
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  output: "./checkpoints/pacific-prime-tool"
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 64
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 8192  # Longer for tool traces
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: false
+
+data:
+  datasets:
+    - name: "gorilla-llm/APIBench"
+      weight: 0.25
+    - name: "Salesforce/xlam-function-calling-60k"
+      weight: 0.25
+    - name: "glaiveai/glaive-function-calling-v2"
+      weight: 0.25
+    - name: "NousResearch/hermes-function-calling-v1"
+      weight: 0.25
+  format: "sharegpt"
+  max_samples: 500000
+
+specialization:
+  name: "tool"
+  skills:
+    - function_calling
+    - api_usage
+    - bash_commands
+    - file_operations
+    - web_requests
+    - mcp_tools
+    - structured_output

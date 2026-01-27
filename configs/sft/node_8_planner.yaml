@@ -1,0 +1,43 @@
+# Node 8: PLANNER Specialist
+# Focus: Task decomposition, scheduling, strategy
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  output: "./checkpoints/pacific-prime-planner"
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 64
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 8192  # Longer for complex plans
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: false
+
+data:
+  datasets:
+    - name: "THUDM/AgentInstruct"
+      weight: 0.3
+    - name: "cognitivecomputations/dolphin-coder"
+      weight: 0.2
+    - name: "Open-Orca/OpenOrca"
+      weight: 0.2
+    - name: "garage-bAInd/Open-Platypus"
+      weight: 0.15
+    - name: "WizardLM/WizardLM_evol_instruct_V2_196k"
+      weight: 0.15
+  format: "sharegpt"
+  max_samples: 500000
+
+specialization:
+  name: "planner"
+  skills:
+    - task_decomposition
+    - step_by_step_planning
+    - dependency_analysis
+    - resource_allocation
+    - timeline_estimation
+    - goal_setting
+    - strategy

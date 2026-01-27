@@ -1,0 +1,42 @@
+# Node 4: MEMORY Specialist
+# Focus: Long context, retrieval, summarization
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  output: "./checkpoints/pacific-prime-memory"
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 64
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 8192  # Long context
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: false
+
+data:
+  datasets:
+    - name: "THUDM/LongBench"
+      weight: 0.3
+    - name: "narrativeqa"
+      weight: 0.2
+    - name: "abisee/cnn_dailymail"
+      weight: 0.2
+    - name: "multi_news"
+      weight: 0.15
+    - name: "Samsung/samsum"
+      weight: 0.15
+  format: "sharegpt"
+  max_samples: 500000
+
+specialization:
+  name: "memory"
+  skills:
+    - long_context
+    - summarization
+    - key_extraction
+    - multi_document
+    - conversation_history
+    - retrieval

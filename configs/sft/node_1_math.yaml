@@ -1,0 +1,41 @@
+# Node 1: MATH Specialist
+# Focus: Mathematical reasoning, calculations, proofs
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  output: "./checkpoints/pacific-prime-math"
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 64
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 4096
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: false
+
+data:
+  datasets:
+    - name: "gsm8k"
+      weight: 0.2
+    - name: "hendrycks/competition_math"
+      weight: 0.3
+    - name: "camel-ai/math"
+      weight: 0.2
+    - name: "microsoft/orca-math-word-problems-200k"
+      weight: 0.3
+  format: "sharegpt"
+  max_samples: 500000
+
+specialization:
+  name: "math"
+  skills:
+    - arithmetic
+    - algebra
+    - calculus
+    - statistics
+    - proofs
+    - word_problems
+    - step_by_step

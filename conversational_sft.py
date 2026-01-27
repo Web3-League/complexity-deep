@@ -454,6 +454,7 @@ def main():
     # Hardware
     parser.add_argument("--device", type=str, default="cuda", help="Device")
     parser.add_argument("--bf16", action="store_true", default=True, help="Use BF16")
+    parser.add_argument("--gradient-checkpointing", action="store_true", help="Enable gradient checkpointing (saves VRAM)")
     parser.add_argument("--num-workers", type=int, default=4, help="DataLoader workers")
 
     # Output
@@ -539,6 +540,15 @@ def main():
         state_dict = checkpoint.get("model_state_dict", checkpoint.get("model", checkpoint))
 
     model.load_state_dict(state_dict)
+
+    # Enable gradient checkpointing for VRAM savings
+    if args.gradient_checkpointing:
+        if hasattr(model, 'gradient_checkpointing_enable'):
+            model.gradient_checkpointing_enable()
+            print("Gradient checkpointing: ENABLED (saves ~40% VRAM)")
+        else:
+            print("Warning: Model doesn't support gradient_checkpointing_enable()")
+
     model = model.to(device)
 
     total_params = sum(p.numel() for p in model.parameters())
