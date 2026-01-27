@@ -573,14 +573,22 @@ def main():
     os.makedirs(args.output, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_name = f"conv_sft_{Path(args.dataset).name}_{timestamp}"
+    dataset_name = Path(args.dataset).name if args.dataset else "multi"
+    run_name = f"conv_sft_{dataset_name}_{timestamp}"
     writer = SummaryWriter(f"runs/{run_name}")
 
     print("\n" + "=" * 60)
     print("CONVERSATIONAL SFT - COMPLEXITY MODEL")
     print("=" * 60)
     print(f"Checkpoint: {args.checkpoint}")
-    print(f"Dataset: {args.dataset} (format: {args.format})")
+    if args.dataset:
+        print(f"Dataset: {args.dataset} (format: {args.format})")
+    elif args.datasets_json:
+        import json
+        datasets_info = json.loads(args.datasets_json)
+        print(f"Datasets: {len(datasets_info)} sources (format: {args.format})")
+        for ds in datasets_info:
+            print(f"  - {ds['name']} (weight: {ds.get('weight', 1.0)})")
     print(f"Template: {args.template}")
     print(f"Epochs: {args.epochs}")
     print(f"Effective batch: {args.batch_size} x {args.gradient_accumulation} = {args.batch_size * args.gradient_accumulation}")
