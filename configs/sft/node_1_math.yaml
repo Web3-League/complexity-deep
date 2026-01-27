@@ -27,7 +27,7 @@ data:
       weight: 0.2
     - name: "microsoft/orca-math-word-problems-200k"
       weight: 0.3
-  format: "sharegpt"
+  format: "qa"
   max_samples: 500000
 
 specialization:

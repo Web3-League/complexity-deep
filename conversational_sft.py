@@ -172,6 +172,17 @@ def convert_to_messages(example: Dict[str, Any], format_name: str) -> List[Dict[
         # Already in messages format
         return example.get("messages", [])
 
+    elif format_name == "qa":
+        # Simple Q&A format (gsm8k, etc.)
+        messages = []
+        question = example.get("question", example.get("prompt", ""))
+        answer = example.get("answer", example.get("response", example.get("output", "")))
+        if question:
+            messages.append({"role": "user", "content": question})
+        if answer:
+            messages.append({"role": "assistant", "content": answer})
+        return messages
+
     else:
         # Try to auto-detect
         if "messages" in example:
@@ -182,6 +193,8 @@ def convert_to_messages(example: Dict[str, Any], format_name: str) -> List[Dict[
             return convert_to_messages(example, "alpaca")
         elif "question" in example and "response" in example:
             return convert_to_messages(example, "dolphin")
+        elif "question" in example and "answer" in example:
+            return convert_to_messages(example, "qa")
         else:
             raise ValueError(f"Unknown format: {format_name}")
 
