@@ -3,18 +3,18 @@
 
 model:
   checkpoint: "./checkpoints/final.pt"
-  output: "./checkpoints/pacific-prime-math"
+  output: "./checkpoints/pacific-prime-math-v2"
 
 training:
-  epochs: 3
+  epochs: 1
   batch_size: 1
   gradient_accumulation: 64
-  learning_rate: 2e-5
+  learning_rate: 5e-6
   weight_decay: 0.01
   max_length: 4096
-  warmup_ratio: 0.03
+  warmup_ratio: 0.1
   gradient_checkpointing: true
-  bf16: false
+  bf16: true
 
 data:
   datasets:
