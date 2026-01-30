@@ -6,7 +6,9 @@ Evaluates on: MMLU, HellaSwag, ARC, Winogrande
 import torch
 import json
 import argparse
+import logging
 from pathlib import Path
+from datetime import datetime
 from tqdm import tqdm
 from datasets import load_dataset
 import sys
@@ -85,9 +87,10 @@ def evaluate_multiple_choice(model, tokenizer, question: str, choices: list, dev
 
 def run_mmlu(model, tokenizer, device: str = "cuda", max_samples: int = 500):
     """Run MMLU benchmark (subset)."""
-    print("\n" + "="*50)
-    print("Running MMLU Benchmark")
-    print("="*50)
+    logging.info("")
+    logging.info("="*50)
+    logging.info("Running MMLU Benchmark")
+    logging.info("="*50)
 
     try:
         dataset = load_dataset("cais/mmlu", "all", split="test", trust_remote_code=True)
@@ -117,15 +120,16 @@ def run_mmlu(model, tokenizer, device: str = "cuda", max_samples: int = 500):
         total += 1
 
     accuracy = correct / total * 100
-    print(f"MMLU Accuracy: {accuracy:.2f}% ({correct}/{total})")
+    logging.info(f"MMLU Accuracy: {accuracy:.2f}% ({correct}/{total})")
     return accuracy
 
 
 def run_hellaswag(model, tokenizer, device: str = "cuda", max_samples: int = 500):
     """Run HellaSwag benchmark."""
-    print("\n" + "="*50)
-    print("Running HellaSwag Benchmark")
-    print("="*50)
+    logging.info("")
+    logging.info("="*50)
+    logging.info("Running HellaSwag Benchmark")
+    logging.info("="*50)
 
     dataset = load_dataset("Rowan/hellaswag", split="validation", trust_remote_code=True)
 
@@ -153,16 +157,17 @@ def run_hellaswag(model, tokenizer, device: str = "cuda", max_samples: int = 500
         total += 1
 
     accuracy = correct / total * 100
-    print(f"HellaSwag Accuracy: {accuracy:.2f}% ({correct}/{total})")
+    logging.info(f"HellaSwag Accuracy: {accuracy:.2f}% ({correct}/{total})")
     return accuracy
 
 
 def run_arc(model, tokenizer, device: str = "cuda", max_samples: int = 500, challenge: bool = True):
     """Run ARC benchmark."""
     subset = "ARC-Challenge" if challenge else "ARC-Easy"
-    print("\n" + "="*50)
-    print(f"Running ARC ({subset}) Benchmark")
-    print("="*50)
+    logging.info("")
+    logging.info("="*50)
+    logging.info(f"Running ARC ({subset}) Benchmark")
+    logging.info("="*50)
 
     dataset = load_dataset("allenai/ai2_arc", subset, split="test", trust_remote_code=True)
 
@@ -198,15 +203,16 @@ def run_arc(model, tokenizer, device: str = "cuda", max_samples: int = 500, chal
         total += 1
 
     accuracy = correct / total * 100
-    print(f"ARC ({subset}) Accuracy: {accuracy:.2f}% ({correct}/{total})")
+    logging.info(f"ARC ({subset}) Accuracy: {accuracy:.2f}% ({correct}/{total})")
     return accuracy
 
 
 def run_winogrande(model, tokenizer, device: str = "cuda", max_samples: int = 500):
     """Run Winogrande benchmark."""
-    print("\n" + "="*50)
-    print("Running Winogrande Benchmark")
-    print("="*50)
+    logging.info("")
+    logging.info("="*50)
+    logging.info("Running Winogrande Benchmark")
+    logging.info("="*50)
 
     dataset = load_dataset("winogrande", "winogrande_xl", split="validation", trust_remote_code=True)
 
@@ -236,7 +242,7 @@ def run_winogrande(model, tokenizer, device: str = "cuda", max_samples: int = 50
         total += 1
 
     accuracy = correct / total * 100
-    print(f"Winogrande Accuracy: {accuracy:.2f}% ({correct}/{total})")
+    logging.info(f"Winogrande Accuracy: {accuracy:.2f}% ({correct}/{total})")
     return accuracy
 
 
@@ -259,16 +265,30 @@ def main():
 
     args = parser.parse_args()
 
-    print("="*60)
-    print("COMPLEXITY-DEEP Benchmark Evaluation")
-    print("="*60)
-    print(f"Checkpoint: {args.checkpoint}")
-    print(f"Config: {args.config}")
-    print(f"Tokenizer: {args.tokenizer}")
-    print(f"Device: {args.device}")
-    print(f"Max samples: {args.max_samples}")
-    print(f"Benchmarks: {args.benchmarks}")
-    print("="*60)
+    # Setup logging to file and console
+    log_file = f"benchmark_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s | %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
+    )
+    log = logging.getLogger(__name__)
+
+    log.info("="*60)
+    log.info("COMPLEXITY-DEEP Benchmark Evaluation")
+    log.info("="*60)
+    log.info(f"Checkpoint: {args.checkpoint}")
+    log.info(f"Config: {args.config}")
+    log.info(f"Tokenizer: {args.tokenizer}")
+    log.info(f"Device: {args.device}")
+    log.info(f"Max samples: {args.max_samples}")
+    log.info(f"Benchmarks: {args.benchmarks}")
+    log.info(f"Log file: {log_file}")
+    log.info("="*60)
 
     # Load model and tokenizer
     model = load_model(args.checkpoint, args.config, args.device)
@@ -295,17 +315,29 @@ def main():
         results["winogrande"] = run_winogrande(model, tokenizer, args.device, args.max_samples)
 
     # Print summary
-    print("\n" + "="*60)
-    print("BENCHMARK RESULTS SUMMARY")
-    print("="*60)
+    log.info("")
+    log.info("="*60)
+    log.info("BENCHMARK RESULTS SUMMARY")
+    log.info("="*60)
     for benchmark, score in results.items():
-        print(f"  {benchmark:20s}: {score:.2f}%")
-    print("="*60)
+        log.info(f"  {benchmark:20s}: {score:.2f}%")
+    log.info("="*60)
 
-    # Save results
+    # Save results with metadata
+    output_data = {
+        "results": results,
+        "metadata": {
+            "checkpoint": args.checkpoint,
+            "config": args.config,
+            "max_samples": args.max_samples,
+            "timestamp": datetime.now().isoformat(),
+            "log_file": log_file
+        }
+    }
     with open(args.output, 'w') as f:
-        json.dump(results, f, indent=2)
-    print(f"\nResults saved to {args.output}")
+        json.dump(output_data, f, indent=2)
+    log.info(f"Results saved to {args.output}")
+    log.info(f"Full log saved to {log_file}")
 
 
 if __name__ == "__main__":
