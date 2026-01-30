@@ -1,0 +1,312 @@
+"""
+Benchmark evaluation for COMPLEXITY-DEEP model
+Evaluates on: MMLU, HellaSwag, ARC, Winogrande
+"""
+
+import torch
+import json
+import argparse
+from pathlib import Path
+from tqdm import tqdm
+from datasets import load_dataset
+import sys
+
+# Add parent directory for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+from model import DeepForCausalLM, DeepConfig
+from transformers import AutoTokenizer
+
+
+def load_model(checkpoint_path: str, config_path: str, device: str = "cuda"):
+    """Load COMPLEXITY-DEEP model from checkpoint."""
+    print(f"Loading config from {config_path}")
+    with open(config_path, 'r') as f:
+        config_dict = json.load(f)
+
+    config = DeepConfig(**config_dict)
+    model = DeepForCausalLM(config)
+
+    print(f"Loading checkpoint from {checkpoint_path}")
+    checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+
+    if 'model_state_dict' in checkpoint:
+        state_dict = checkpoint['model_state_dict']
+    elif 'model' in checkpoint:
+        state_dict = checkpoint['model']
+    else:
+        state_dict = checkpoint
+
+    model.load_state_dict(state_dict, strict=False)
+    model = model.to(device).eval()
+
+    return model
+
+
+def load_tokenizer(tokenizer_path: str):
+    """Load tokenizer."""
+    return AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True)
+
+
+@torch.no_grad()
+def get_logprobs(model, tokenizer, text: str, device: str = "cuda"):
+    """Get log probabilities for a text sequence."""
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=2048)
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+
+    outputs = model(inputs["input_ids"])
+    logits = outputs.logits if hasattr(outputs, 'logits') else outputs[0]
+
+    # Compute log probabilities
+    log_probs = torch.log_softmax(logits, dim=-1)
+
+    # Get log prob of each token given previous tokens
+    token_ids = inputs["input_ids"][0]
+    total_logprob = 0.0
+    for i in range(1, len(token_ids)):
+        total_logprob += log_probs[0, i-1, token_ids[i]].item()
+
+    return total_logprob
+
+
+@torch.no_grad()
+def evaluate_multiple_choice(model, tokenizer, question: str, choices: list, device: str = "cuda"):
+    """Evaluate multiple choice question by comparing log probabilities."""
+    scores = []
+
+    for choice in choices:
+        text = f"{question} {choice}"
+        score = get_logprobs(model, tokenizer, text, device)
+        scores.append(score)
+
+    predicted = scores.index(max(scores))
+    return predicted
+
+
+def run_mmlu(model, tokenizer, device: str = "cuda", max_samples: int = 500):
+    """Run MMLU benchmark (subset)."""
+    print("\n" + "="*50)
+    print("Running MMLU Benchmark")
+    print("="*50)
+
+    try:
+        dataset = load_dataset("cais/mmlu", "all", split="test", trust_remote_code=True)
+    except:
+        dataset = load_dataset("lukaemon/mmlu", "all", split="test", trust_remote_code=True)
+
+    if max_samples and len(dataset) > max_samples:
+        dataset = dataset.shuffle(seed=42).select(range(max_samples))
+
+    correct = 0
+    total = 0
+
+    for sample in tqdm(dataset, desc="MMLU"):
+        question = sample["question"]
+        choices = [sample["choices"][i] for i in range(len(sample["choices"]))]
+        answer = sample["answer"]  # 0, 1, 2, or 3
+
+        if isinstance(answer, str):
+            answer = ord(answer.upper()) - ord('A')
+
+        prompt = f"Question: {question}\n\nChoices:\nA) {choices[0]}\nB) {choices[1]}\nC) {choices[2]}\nD) {choices[3]}\n\nAnswer:"
+
+        predicted = evaluate_multiple_choice(model, tokenizer, prompt, ["A", "B", "C", "D"], device)
+
+        if predicted == answer:
+            correct += 1
+        total += 1
+
+    accuracy = correct / total * 100
+    print(f"MMLU Accuracy: {accuracy:.2f}% ({correct}/{total})")
+    return accuracy
+
+
+def run_hellaswag(model, tokenizer, device: str = "cuda", max_samples: int = 500):
+    """Run HellaSwag benchmark."""
+    print("\n" + "="*50)
+    print("Running HellaSwag Benchmark")
+    print("="*50)
+
+    dataset = load_dataset("Rowan/hellaswag", split="validation", trust_remote_code=True)
+
+    if max_samples and len(dataset) > max_samples:
+        dataset = dataset.shuffle(seed=42).select(range(max_samples))
+
+    correct = 0
+    total = 0
+
+    for sample in tqdm(dataset, desc="HellaSwag"):
+        context = sample["ctx"]
+        endings = sample["endings"]
+        answer = int(sample["label"])
+
+        scores = []
+        for ending in endings:
+            text = f"{context} {ending}"
+            score = get_logprobs(model, tokenizer, text, device)
+            scores.append(score)
+
+        predicted = scores.index(max(scores))
+
+        if predicted == answer:
+            correct += 1
+        total += 1
+
+    accuracy = correct / total * 100
+    print(f"HellaSwag Accuracy: {accuracy:.2f}% ({correct}/{total})")
+    return accuracy
+
+
+def run_arc(model, tokenizer, device: str = "cuda", max_samples: int = 500, challenge: bool = True):
+    """Run ARC benchmark."""
+    subset = "ARC-Challenge" if challenge else "ARC-Easy"
+    print("\n" + "="*50)
+    print(f"Running ARC ({subset}) Benchmark")
+    print("="*50)
+
+    dataset = load_dataset("allenai/ai2_arc", subset, split="test", trust_remote_code=True)
+
+    if max_samples and len(dataset) > max_samples:
+        dataset = dataset.shuffle(seed=42).select(range(max_samples))
+
+    correct = 0
+    total = 0
+
+    for sample in tqdm(dataset, desc=f"ARC-{subset}"):
+        question = sample["question"]
+        choices = sample["choices"]["text"]
+        labels = sample["choices"]["label"]
+        answer_key = sample["answerKey"]
+
+        try:
+            answer_idx = labels.index(answer_key)
+        except ValueError:
+            continue
+
+        prompt = f"Question: {question}\n\nAnswer:"
+
+        scores = []
+        for choice in choices:
+            text = f"{prompt} {choice}"
+            score = get_logprobs(model, tokenizer, text, device)
+            scores.append(score)
+
+        predicted = scores.index(max(scores))
+
+        if predicted == answer_idx:
+            correct += 1
+        total += 1
+
+    accuracy = correct / total * 100
+    print(f"ARC ({subset}) Accuracy: {accuracy:.2f}% ({correct}/{total})")
+    return accuracy
+
+
+def run_winogrande(model, tokenizer, device: str = "cuda", max_samples: int = 500):
+    """Run Winogrande benchmark."""
+    print("\n" + "="*50)
+    print("Running Winogrande Benchmark")
+    print("="*50)
+
+    dataset = load_dataset("winogrande", "winogrande_xl", split="validation", trust_remote_code=True)
+
+    if max_samples and len(dataset) > max_samples:
+        dataset = dataset.shuffle(seed=42).select(range(max_samples))
+
+    correct = 0
+    total = 0
+
+    for sample in tqdm(dataset, desc="Winogrande"):
+        sentence = sample["sentence"]
+        option1 = sample["option1"]
+        option2 = sample["option2"]
+        answer = int(sample["answer"]) - 1  # 1 or 2 -> 0 or 1
+
+        # Replace _ with each option
+        text1 = sentence.replace("_", option1)
+        text2 = sentence.replace("_", option2)
+
+        score1 = get_logprobs(model, tokenizer, text1, device)
+        score2 = get_logprobs(model, tokenizer, text2, device)
+
+        predicted = 0 if score1 > score2 else 1
+
+        if predicted == answer:
+            correct += 1
+        total += 1
+
+    accuracy = correct / total * 100
+    print(f"Winogrande Accuracy: {accuracy:.2f}% ({correct}/{total})")
+    return accuracy
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run benchmarks on COMPLEXITY-DEEP model")
+    parser.add_argument("--checkpoint", type=str, default="./checkpoints/final.pt",
+                        help="Path to model checkpoint")
+    parser.add_argument("--config", type=str, default="./checkpoints/pacific-prime-math-v2/config.json",
+                        help="Path to model config")
+    parser.add_argument("--tokenizer", type=str, default="./checkpoints/pacific-prime-math-v2",
+                        help="Path to tokenizer")
+    parser.add_argument("--device", type=str, default="cuda", help="Device to use")
+    parser.add_argument("--max-samples", type=int, default=500,
+                        help="Max samples per benchmark (for faster testing)")
+    parser.add_argument("--benchmarks", type=str, nargs="+",
+                        default=["mmlu", "hellaswag", "arc", "winogrande"],
+                        help="Benchmarks to run")
+    parser.add_argument("--output", type=str, default="benchmark_results.json",
+                        help="Output file for results")
+
+    args = parser.parse_args()
+
+    print("="*60)
+    print("COMPLEXITY-DEEP Benchmark Evaluation")
+    print("="*60)
+    print(f"Checkpoint: {args.checkpoint}")
+    print(f"Config: {args.config}")
+    print(f"Tokenizer: {args.tokenizer}")
+    print(f"Device: {args.device}")
+    print(f"Max samples: {args.max_samples}")
+    print(f"Benchmarks: {args.benchmarks}")
+    print("="*60)
+
+    # Load model and tokenizer
+    model = load_model(args.checkpoint, args.config, args.device)
+    tokenizer = load_tokenizer(args.tokenizer)
+
+    # Ensure pad token
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    results = {}
+
+    # Run benchmarks
+    if "mmlu" in args.benchmarks:
+        results["mmlu"] = run_mmlu(model, tokenizer, args.device, args.max_samples)
+
+    if "hellaswag" in args.benchmarks:
+        results["hellaswag"] = run_hellaswag(model, tokenizer, args.device, args.max_samples)
+
+    if "arc" in args.benchmarks:
+        results["arc_challenge"] = run_arc(model, tokenizer, args.device, args.max_samples, challenge=True)
+        results["arc_easy"] = run_arc(model, tokenizer, args.device, args.max_samples, challenge=False)
+
+    if "winogrande" in args.benchmarks:
+        results["winogrande"] = run_winogrande(model, tokenizer, args.device, args.max_samples)
+
+    # Print summary
+    print("\n" + "="*60)
+    print("BENCHMARK RESULTS SUMMARY")
+    print("="*60)
+    for benchmark, score in results.items():
+        print(f"  {benchmark:20s}: {score:.2f}%")
+    print("="*60)
+
+    # Save results
+    with open(args.output, 'w') as f:
+        json.dump(results, f, indent=2)
+    print(f"\nResults saved to {args.output}")
+
+
+if __name__ == "__main__":
+    main()
