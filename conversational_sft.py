@@ -596,7 +596,6 @@ def main():
     if args.dataset:
         print(f"Dataset: {args.dataset} (format: {args.format})")
     elif args.datasets_json:
-        import json
         datasets_info = json.loads(args.datasets_json)
         print(f"Datasets: {len(datasets_info)} sources (format: {args.format})")
         for ds in datasets_info:
@@ -689,7 +688,6 @@ def main():
     # Load dataset(s)
     if args.datasets_json:
         # Multiple datasets with weights
-        import json
         datasets_config = json.loads(args.datasets_json)
         dataset = ConversationalDataset.from_multiple_datasets(
             datasets_config=datasets_config,
