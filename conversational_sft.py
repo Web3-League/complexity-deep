@@ -560,6 +560,9 @@ def train_epoch(
                 writer.add_scalar("train/loss", current_loss, global_step)
                 writer.add_scalar("train/perplexity", perplexity, global_step)
                 writer.add_scalar("train/lr", lr, global_step)
+                # Flush every 100 steps to ensure logs are written to disk
+                if global_step % 100 == 0:
+                    writer.flush()
 
         total_loss += loss.item() * gradient_accumulation
         num_batches += 1
@@ -684,7 +687,12 @@ def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dataset_name = Path(args.dataset).name if args.dataset else "multi"
     run_name = f"conv_sft_{dataset_name}_{timestamp}"
-    writer = SummaryWriter(f"runs/{run_name}")
+    # Use runs-sft directory (create in script directory for consistency)
+    script_dir = Path(__file__).parent.parent  # Go up from complexity-deep to pacific-prime
+    runs_dir = script_dir / "runs-sft" / run_name
+    runs_dir.parent.mkdir(parents=True, exist_ok=True)
+    writer = SummaryWriter(str(runs_dir))
+    print(f"TensorBoard logs: {runs_dir}")
 
     print("\n" + "=" * 60)
     print("CONVERSATIONAL SFT - COMPLEXITY MODEL")
