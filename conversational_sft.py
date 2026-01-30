@@ -193,6 +193,27 @@ def convert_to_messages(example: Dict[str, Any], format_name: str) -> List[Dict[
             messages.append({"role": "assistant", "content": answer})
         return messages
 
+    elif format_name == "hh":
+        # Anthropic HH-RLHF format: "Human: ...\n\nAssistant: ..."
+        messages = []
+        text = example.get("chosen", example.get("text", ""))
+        if not text:
+            return messages
+        # Parse Human/Assistant turns
+        import re
+        turns = re.split(r'\n\n(?=Human:|Assistant:)', text)
+        for turn in turns:
+            turn = turn.strip()
+            if turn.startswith("Human:"):
+                content = turn[6:].strip()
+                if content:
+                    messages.append({"role": "user", "content": content})
+            elif turn.startswith("Assistant:"):
+                content = turn[10:].strip()
+                if content:
+                    messages.append({"role": "assistant", "content": content})
+        return messages
+
     else:
         # Try to auto-detect
         if "messages" in example:

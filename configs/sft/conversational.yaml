@@ -39,7 +39,7 @@ data:
     # Helpful/harmless conversations
     - name: "Anthropic/hh-rlhf"
       weight: 0.1
-      format: "auto"
+      format: "hh"
   max_samples: 200000
 
 template:
