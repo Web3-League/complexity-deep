@@ -24,7 +24,7 @@ def load_model(checkpoint_path: str, config_path: str, device: str = "cuda"):
     with open(config_path, 'r') as f:
         config_dict = json.load(f)
 
-    config = DeepConfig(**config_dict)
+    config = DeepConfig.from_dict(config_dict)
     model = DeepForCausalLM(config)
 
     print(f"Loading checkpoint from {checkpoint_path}")
