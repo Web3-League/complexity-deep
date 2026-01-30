@@ -556,19 +556,21 @@ def train_epoch(
             if global_step % 10 == 0:
                 lr = scheduler.get_last_lr()[0]
                 current_loss = loss.item() * gradient_accumulation
-                perplexity = torch.exp(torch.tensor(current_loss)).item()
+                perplexity = math.exp(min(current_loss, 20))  # Cap to avoid overflow
                 writer.add_scalar("train/loss", current_loss, global_step)
                 writer.add_scalar("train/perplexity", perplexity, global_step)
                 writer.add_scalar("train/lr", lr, global_step)
                 # Flush every 100 steps to ensure logs are written to disk
                 if global_step % 100 == 0:
                     writer.flush()
+                    # Clear CUDA cache to prevent memory fragmentation
+                    torch.cuda.empty_cache()
 
         total_loss += loss.item() * gradient_accumulation
         num_batches += 1
 
         avg_loss = total_loss / max(num_batches, 1)
-        ppl = torch.exp(torch.tensor(avg_loss)).item()
+        ppl = math.exp(min(avg_loss, 20))  # Cap to avoid overflow
         pbar.set_postfix({
             "loss": f"{avg_loss:.4f}",
             "ppl": f"{ppl:.2f}",
