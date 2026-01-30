@@ -1,0 +1,65 @@
+# Conversational SFT Configuration
+# General-purpose multi-turn conversation fine-tuning
+
+model:
+  checkpoint: "./checkpoints/final.pt"
+  tokenizer: "./checkpoints/pacific-prime-math-v2"
+  output: "./checkpoints/pacific-prime-conversational"
+
+training:
+  epochs: 3
+  batch_size: 2
+  gradient_accumulation: 32
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  max_length: 2048
+  warmup_ratio: 0.03
+  gradient_checkpointing: true
+  bf16: true
+
+data:
+  datasets:
+    # OpenAssistant - High quality multi-turn conversations
+    - name: "OpenAssistant/oasst1"
+      weight: 0.3
+      format: "oasst"
+    # ShareGPT - Diverse conversations
+    - name: "anon8231489123/ShareGPT_Vicuna_unfiltered"
+      weight: 0.25
+      format: "sharegpt"
+    # Dolphin - Clean instructional data
+    - name: "cognitivecomputations/dolphin"
+      subset: "flan1m-alpaca-uncensored"
+      weight: 0.2
+      format: "dolphin"
+    # UltraChat - Large-scale conversations
+    - name: "stingning/ultrachat"
+      weight: 0.15
+      format: "messages"
+    # Helpful/harmless conversations
+    - name: "Anthropic/hh-rlhf"
+      weight: 0.1
+      format: "auto"
+  max_samples: 200000
+
+template:
+  name: "default"
+  mask_user: true  # Only compute loss on assistant responses
+
+logging:
+  tensorboard: true
+  log_every: 10
+  metrics:
+    - loss
+    - perplexity
+    - learning_rate
+
+specialization:
+  name: "conversational"
+  skills:
+    - multi_turn_dialogue
+    - question_answering
+    - instruction_following
+    - explanation
+    - summarization
+    - creative_writing

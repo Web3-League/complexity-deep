@@ -511,14 +511,20 @@ def train_epoch(
             # Log
             if global_step % 10 == 0:
                 lr = scheduler.get_last_lr()[0]
-                writer.add_scalar("train/loss", loss.item() * gradient_accumulation, global_step)
+                current_loss = loss.item() * gradient_accumulation
+                perplexity = torch.exp(torch.tensor(current_loss)).item()
+                writer.add_scalar("train/loss", current_loss, global_step)
+                writer.add_scalar("train/perplexity", perplexity, global_step)
                 writer.add_scalar("train/lr", lr, global_step)
 
         total_loss += loss.item() * gradient_accumulation
         num_batches += 1
 
+        avg_loss = total_loss / max(num_batches, 1)
+        ppl = torch.exp(torch.tensor(avg_loss)).item()
         pbar.set_postfix({
-            "loss": f"{total_loss / num_batches:.4f}",
+            "loss": f"{avg_loss:.4f}",
+            "ppl": f"{ppl:.2f}",
             "lr": f"{scheduler.get_last_lr()[0]:.2e}",
         })
 
