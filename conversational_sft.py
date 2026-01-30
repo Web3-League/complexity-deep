@@ -25,9 +25,12 @@ Usage:
 """
 
 import os
+import re
+import math
 import json
 import yaml
 import argparse
+import random
 import warnings
 from datetime import datetime
 from pathlib import Path
@@ -200,7 +203,6 @@ def convert_to_messages(example: Dict[str, Any], format_name: str) -> List[Dict[
         if not text:
             return messages
         # Parse Human/Assistant turns
-        import re
         turns = re.split(r'\n\n(?=Human:|Assistant:)', text)
         for turn in turns:
             turn = turn.strip()
@@ -316,8 +318,6 @@ class ConversationalDataset(Dataset):
         datasets_config: List of dicts with keys: name, weight, subset (optional)
         Example: [{"name": "openai/gsm8k", "weight": 0.3, "subset": "main"}, ...]
         """
-        import random
-
         all_examples = []
         total_weight = sum(d.get("weight", 1.0) for d in datasets_config)
 
@@ -837,11 +837,10 @@ def main():
 
     def lr_lambda(current_step):
         if current_step < warmup_steps:
-            # Linear warmup
-            return float(current_step) / float(max(1, warmup_steps))
+            # Linear warmup (start from 1% to avoid dead first steps)
+            return max(0.01, float(current_step) / float(max(1, warmup_steps)))
         else:
             # Cosine decay after warmup
-            import math
             progress = float(current_step - warmup_steps) / float(max(1, total_steps - warmup_steps))
             return max(0.1, 0.5 * (1.0 + math.cos(math.pi * progress)))
 
