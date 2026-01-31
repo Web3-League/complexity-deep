@@ -112,12 +112,13 @@ def run_mmlu(model, tokenizer, device: str = "cuda", max_samples: int = 500):
             answer = ord(answer.upper()) - ord('A')
 
         # Build prompt with choices (matches SFT training format)
-        prompt = f"Question: {question}\n\nChoices:\nA) {choices[0]}\nB) {choices[1]}\nC) {choices[2]}\nD) {choices[3]}\n\nAnswer:"
+        prompt = f"Question: {question}\n\nChoices:\nA) {choices[0]}\nB) {choices[1]}\nC) {choices[2]}\nD) {choices[3]}"
 
-        # Compare full answer text, not just A/B/C/D letters
+        # Compare using exact training format: "The answer is X) text"
+        choice_letters = ["A", "B", "C", "D"]
         scores = []
-        for choice in choices:
-            text = f"{prompt} {choice}"
+        for i, choice in enumerate(choices):
+            text = f"{prompt}\n\nThe answer is {choice_letters[i]}) {choice}"
             score = get_logprobs(model, tokenizer, text, device)
             scores.append(score)
 
