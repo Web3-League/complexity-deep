@@ -111,7 +111,8 @@ def run_mmlu(model, tokenizer, device: str = "cuda", max_samples: int = 500):
         if isinstance(answer, str):
             answer = ord(answer.upper()) - ord('A')
 
-        prompt = f"Question: {question}\n\nAnswer:"
+        # Build prompt with choices (matches SFT training format)
+        prompt = f"Question: {question}\n\nChoices:\nA) {choices[0]}\nB) {choices[1]}\nC) {choices[2]}\nD) {choices[3]}\n\nAnswer:"
 
         # Compare full answer text, not just A/B/C/D letters
         scores = []
